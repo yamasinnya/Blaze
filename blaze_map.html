@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blaze — マップ</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #050510; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  </style>
+</head>
+<body>
+<div id="game"></div>
+<script>
+
+// =====================
+// ノードタイプ定義
+// =====================
+const TYPES = {
+  normal: { label: '雑魚戦',   icon: '⚔️',  bg: 0x0d2a3d, ring: 0x3a8fbf, glow: 0x5ab5e8 },
+  shop:   { label: 'ショップ', icon: '🏪',  bg: 0x2a1e05, ring: 0xc9922a, glow: 0xf5c55a },
+  elite:  { label: 'エリート', icon: '💀',  bg: 0x250d35, ring: 0x8844cc, glow: 0xbb77ff },
+  relic:  { label: 'レリック', icon: '💎',  bg: 0x052a1e, ring: 0x2aaa77, glow: 0x44ddaa },
+  boss:   { label: 'ボス',     icon: '🔥',  bg: 0x350505, ring: 0xcc2222, glow: 0xff5555 },
+};
+
+// rows[0] = 最下段 → 最初に選ぶ
+// rows[最後] = ボス
+const ROWS = [
+  ['normal', 'normal', 'normal'],  // row 0
+  ['normal', 'shop',   'normal'],  // row 1
+  ['elite',  'elite'],             // row 2
+  ['normal', 'relic',  'normal'],  // row 3
+  ['normal', 'shop'],              // row 4
+  ['boss'],                        // row 5
+];
+
+// CONNS[rowIdx][colIdx] = 次の行への接続先インデックス配列
+const CONNS = [
+  [[0,1],  [1,2],  [1,2]  ],  // row0 → row1
+  [[0],    [0,1],  [1]    ],  // row1 → row2
+  [[0,1],  [1,2]          ],  // row2 → row3
+  [[0],    [0,1],  [1]    ],  // row3 → row4
+  [[0],    [0]            ],  // row4 → row5
+];
+
+// =====================
+// 座標計算
+// =====================
+function calcPositions(W, H) {
+  const MARGIN_TOP    = 68;
+  const MARGIN_BOTTOM = 52;
+  const usableH = H - MARGIN_TOP - MARGIN_BOTTOM;
+  const rowCount = ROWS.length;
+
+  return ROWS.map((row, ri) => {
+    const y = H - MARGIN_BOTTOM - ri * (usableH / (rowCount - 1));
+    const xs = getXList(row.length, W);
+    return row.map((type, ci) => ({
+      x: xs[ci], y, type, row: ri, col: ci,
+      available: false, visited: false, current: false,
+    }));
+  });
+}
+
+function getXList(n, W) {
+  if (n === 1) return [W * 0.5];
+  if (n === 2) return [W * 0.28, W * 0.72];
+  if (n === 3) return [W * 0.18, W * 0.5, W * 0.82];
+}
+
+// =====================
+// MapScene
+// =====================
+class MapScene extends Phaser.Scene {
+  constructor() { super({ key: 'MapScene' }); }
+
+  create() {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    this.nodes = calcPositions(W, H);
+    this.currentPos = null;
+
+    this.drawBG(W, H);
+    this.linesGfx = this.add.graphics();
+    this.drawLines();
+    this.buildNodes();
+    this.buildUI(W, H);
+    this.refreshState();
+  }
+
+  // ---- 背景 ----
+  drawBG(W, H) {
+    this.add.rectangle(W/2, H/2, W, H, 0x050510);
+
+    // 星
+    for (let i = 0; i < 110; i++) {
+      const x = Phaser.Math.Between(0, W);
+      const y = Phaser.Math.Between(0, H);
+      this.add.circle(x, y, Math.random() * 1.2 + 0.3, 0xffffff, Math.random() * 0.5 + 0.1);
+    }
+
+    // タイトル帯
+    this.add.rectangle(W/2, 26, W, 52, 0x08081a, 0.95);
+    this.add.text(W/2, 13, 'B L A Z E', {
+      fontSize: '18px', fontFamily: 'serif', color: '#d4a853',
+      stroke: '#3a2000', strokeThickness: 4, letterSpacing: 4
+    }).setOrigin(0.5);
+    this.add.text(W/2, 38, 'ステージ 1  —  サバンナの試練', {
+      fontSize: '11px', fontFamily: 'sans-serif', color: '#7777aa'
+    }).setOrigin(0.5);
+  }
+
+  // ---- 接続線 ----
+  drawLines() {
+    this.linesGfx.clear();
+    CONNS.forEach((rowConns, ri) => {
+      rowConns.forEach((targets, ci) => {
+        const from = this.nodes[ri][ci];
+        targets.forEach(ti => {
+          const to = this.nodes[ri + 1][ti];
+          const fromDone = from.visited || from.current;
+          const toDone   = to.visited   || to.current;
+          let color, alpha, width;
+          if (fromDone && toDone) {
+            color = TYPES[from.type].glow; alpha = 0.75; width = 2;
+          } else if (fromDone) {
+            color = 0x5566bb; alpha = 0.45; width = 1.5;
+          } else {
+            color = 0x1e2a44; alpha = 0.35; width = 1;
+          }
+          this.linesGfx.lineStyle(width, color, alpha);
+          this.linesGfx.beginPath();
+          this.linesGfx.moveTo(from.x, from.y);
+          this.linesGfx.lineTo(to.x, to.y);
+          this.linesGfx.strokePath();
+        });
+      });
+    });
+  }
+
+  // ---- ノードオブジェクト生成 ----
+  buildNodes() {
+    this.nodes.forEach(row => row.forEach(node => {
+      const t = TYPES[node.type];
+      const R = node.type === 'boss' ? 34 : 26;
+
+      node._glow  = this.add.circle(node.x, node.y, R + 10, t.glow, 0);
+      node._bg    = this.add.circle(node.x, node.y, R, t.bg).setStrokeStyle(2, t.ring);
+      node._icon  = this.add.text(node.x, node.y - (node.type === 'boss' ? 9 : 6), t.icon, {
+        fontSize: node.type === 'boss' ? '26px' : '18px'
+      }).setOrigin(0.5);
+      node._label = this.add.text(node.x, node.y + (node.type === 'boss' ? 21 : 17), t.label, {
+        fontSize: '9px', fontFamily: 'sans-serif', color: '#9999bb'
+      }).setOrigin(0.5);
+      node._hit   = this.add.circle(node.x, node.y, R + 14, 0xffffff, 0).setInteractive();
+
+      node._hit.on('pointerover', () => {
+        if (node.available) this.hintText.setText('→ ' + t.label + '：' + this.flavor(node.type));
+      });
+      node._hit.on('pointerout', () => {
+        if (node.available) this.hintText.setText('行き先を選んでください');
+      });
+      node._hit.on('pointerdown', () => {
+        if (node.available) this.pickNode(node);
+      });
+    }));
+  }
+
+  // ---- UI ----
+  buildUI(W, H) {
+    this.hintText = this.add.text(W/2, H - 16, '最初の戦いを選んでください', {
+      fontSize: '12px', fontFamily: 'sans-serif', color: '#7777aa'
+    }).setOrigin(0.5);
+
+    // HP表示（仮）
+    this.add.rectangle(58, 26, 96, 34, 0x081408, 0.9).setStrokeStyle(1, 0x336633);
+    this.add.text(58, 26, '❤️  40 / 40', {
+      fontSize: '11px', fontFamily: 'sans-serif', color: '#55cc55'
+    }).setOrigin(0.5);
+
+    // レリック表示（仮）
+    this.add.rectangle(W - 62, 26, 104, 34, 0x140808, 0.9).setStrokeStyle(1, 0x883322);
+    this.add.text(W - 62, 26, '🌿  回復 +5', {
+      fontSize: '11px', fontFamily: 'sans-serif', color: '#cc8844'
+    }).setOrigin(0.5);
+  }
+
+  // ---- 状態リフレッシュ ----
+  refreshState() {
+    // 全ノードをリセット
+    this.nodes.forEach(row => row.forEach(node => {
+      node.available = false;
+      node._hit.disableInteractive();
+      if (node._glowTween) { node._glowTween.stop(); node._glowTween = null; }
+      node._glow.setAlpha(0);
+
+      const t = TYPES[node.type];
+      if (node.current) {
+        node._bg.setFillStyle(t.ring).setStrokeStyle(3, 0xffffff).setAlpha(1);
+        node._icon.setAlpha(1);
+        node._label.setAlpha(1).setColor('#ffffff');
+      } else if (node.visited) {
+        node._bg.setFillStyle(t.bg).setStrokeStyle(2, t.ring).setAlpha(0.5);
+        node._icon.setAlpha(0.45);
+        node._label.setAlpha(0.45).setColor('#666688');
+      } else {
+        node._bg.setFillStyle(t.bg).setStrokeStyle(2, 0x223344).setAlpha(0.6);
+        node._icon.setAlpha(0.5);
+        node._label.setAlpha(0.5).setColor('#555577');
+      }
+    }));
+
+    // 次に選べるノードを設定
+    const availables = this.getAvailableNodes();
+    availables.forEach(node => {
+      node.available = true;
+      node._hit.setInteractive();
+      const t = TYPES[node.type];
+      node._bg.setFillStyle(t.bg).setStrokeStyle(2.5, t.ring).setAlpha(1);
+      node._icon.setAlpha(1);
+      node._label.setAlpha(1).setColor('#aaaacc');
+      node._glow.setAlpha(0.2);
+      node._glowTween = this.tweens.add({
+        targets: node._glow,
+        alpha:  { from: 0.08, to: 0.45 },
+        scaleX: { from: 0.8,  to: 1.2  },
+        scaleY: { from: 0.8,  to: 1.2  },
+        duration: 900,
+        yoyo: true, repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    });
+  }
+
+  getAvailableNodes() {
+    if (this.currentPos === null) return this.nodes[0];
+    const { row, col } = this.currentPos;
+    if (row >= CONNS.length) return [];
+    return (CONNS[row][col] || []).map(ti => this.nodes[row + 1][ti]);
+  }
+
+  // ---- ノード選択 ----
+  pickNode(node) {
+    // 前の現在地をvisitedに
+    if (this.currentPos) {
+      const prev = this.nodes[this.currentPos.row][this.currentPos.col];
+      prev.current = false;
+      prev.visited = true;
+    }
+    node.available = false;
+    node.current   = true;
+    this.currentPos = { row: node.row, col: node.col };
+
+    // パーティクルエフェクト
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const p = this.add.circle(node.x, node.y, 5, TYPES[node.type].glow, 0.9);
+      this.tweens.add({
+        targets: p,
+        x: node.x + Math.cos(angle) * 58,
+        y: node.y + Math.sin(angle) * 58,
+        alpha: 0, scaleX: 0.3, scaleY: 0.3,
+        duration: 480, ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
+
+    this.cameras.main.shake(100, 0.004);
+
+    this.time.delayedCall(180, () => {
+      this.drawLines();
+      this.refreshState();
+      this.hintText.setText(
+        node.type === 'boss'
+          ? '⚠️ ボスが待ち受ける…！　決戦の時だ'
+          : TYPES[node.type].label + 'へ向かう。次の行き先を選んでください'
+      );
+    });
+  }
+
+  // ---- フレーバーテキスト ----
+  flavor(type) {
+    return {
+      normal: 'サバンナライオンとの戦い',
+      shop:   '店主がレリックを見せてくれる',
+      elite:  '手強い相手。レリックが落ちるかも',
+      relic:  '謎めいた依頼人がレリックを授ける',
+      boss:   'ここを超えればステージクリア',
+    }[type] || '???';
+  }
+
+  update() {}
+}
+
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: 640,
+  height: 480,
+  backgroundColor: '#050510',
+  parent: 'game',
+  scene: MapScene,
+});
+</script>
+</body>
+</html>

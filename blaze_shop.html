@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Blaze Shop — Phaser.jsサンプル</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    #game-container { border: 1px solid #444; }
+  </style>
+</head>
+<body>
+<div id="game-container"></div>
+<script>
+// ===============================
+// Phaser.jsの基本構造
+// preload → create → update の3段階
+// ===============================
+
+class ShopScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'ShopScene' });
+  }
+
+  // ① アセット読み込み（今回はテクスチャを動的生成するので空）
+  preload() {}
+
+  // ② シーン初期化（画面を作る）
+  create() {
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // --- 背景 ---
+    this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e);
+
+    // 床板
+    for (let i = 0; i < W; i += 40) {
+      this.add.rectangle(i + 20, H - 20, 38, 38, i % 80 === 0 ? 0x3d2b1f : 0x4a3528)
+        .setStrokeStyle(1, 0x2a1a0f);
+    }
+
+    // --- 看板 ---
+    const sign = this.add.rectangle(W/2, 55, 320, 60, 0x5c3d1e).setStrokeStyle(3, 0xd4a853);
+    this.add.text(W/2, 55, 'カードショップ Blaze', {
+      fontSize: '22px', fontFamily: 'serif', color: '#f5d78e', stroke: '#8b4513', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // --- 店主 ---
+    const shopkeeper = this.add.rectangle(90, H - 120, 80, 140, 0x8b6914).setStrokeStyle(2, 0x5c4000);
+    // 顔
+    this.add.circle(90, H - 165, 30, 0xf4c07e).setStrokeStyle(2, 0xd4956a);
+    // 目
+    this.add.circle(80, H - 168, 5, 0x2c1810);
+    this.add.circle(100, H - 168, 5, 0x2c1810);
+    // 口
+    this.add.arc(90, H - 158, 8, 0, 180, false, 0x2c1810);
+
+    // 店主セリフ
+    this.dialogBg = this.add.rectangle(230, H - 155, 300, 60, 0x2a1a0f, 0.9).setStrokeStyle(2, 0xd4a853);
+    this.dialogText = this.add.text(230, H - 155,
+      'パックを一つ貸してやる。\n勝ったら面白いカードを持ち帰れ。', {
+      fontSize: '13px', fontFamily: 'sans-serif', color: '#f5d78e',
+      align: 'center', wordWrap: { width: 280 }
+    }).setOrigin(0.5);
+
+    // --- 所持金 ---
+    this.gold = 120;
+    this.add.rectangle(W - 80, 30, 130, 36, 0x2a1a0f).setStrokeStyle(2, 0xd4a853);
+    this.goldText = this.add.text(W - 80, 30, `🪙 ${this.gold} G`, {
+      fontSize: '16px', fontFamily: 'sans-serif', color: '#f5d78e'
+    }).setOrigin(0.5);
+
+    // --- レリック（売り物）定義 ---
+    const items = [
+      { name: '《選択》\nコモン', desc: '戦闘開始時に\n手札に加わる', price: 30, color: 0x3a6b3a },
+      { name: '《不屈の自然》\nアンコモン', desc: '戦闘開始時に\n手札に加わる', price: 60, color: 0x2a4a7a },
+      { name: '《ヤヴィマヤの火》\nレア', desc: '全クリーチャー\n+1/+1永続', price: 100, color: 0x7a2a2a },
+    ];
+
+    this.cards = [];
+    items.forEach((item, i) => {
+      const x = 130 + i * 180;
+      const y = H / 2 - 20;
+      this.createCard(x, y, item);
+    });
+
+    // --- 出口ボタン ---
+    const exitBtn = this.add.rectangle(W/2, H - 35, 160, 36, 0x3d2b1f).setStrokeStyle(2, 0xd4a853).setInteractive();
+    this.add.text(W/2, H - 35, '出発する →', {
+      fontSize: '15px', fontFamily: 'sans-serif', color: '#f5d78e'
+    }).setOrigin(0.5);
+
+    exitBtn.on('pointerover', () => exitBtn.setFillStyle(0x5c3d1e));
+    exitBtn.on('pointerout', () => exitBtn.setFillStyle(0x3d2b1f));
+    exitBtn.on('pointerdown', () => {
+      this.dialogText.setText('また来い。いつでも歓迎だ。');
+      this.tweens.add({ targets: this.dialogBg, scaleX: 1.05, scaleY: 1.05, yoyo: true, duration: 150 });
+    });
+  }
+
+  createCard(x, y, item) {
+    // カード背景
+    const card = this.add.rectangle(x, y, 150, 180, 0x1e1e3a).setStrokeStyle(2, 0x6688aa).setInteractive();
+
+    // カード色帯
+    this.add.rectangle(x, y - 60, 150, 30, item.color);
+
+    // カード名
+    this.add.text(x, y - 60, item.name, {
+      fontSize: '12px', fontFamily: 'sans-serif', color: '#ffffff',
+      align: 'center', wordWrap: { width: 140 }
+    }).setOrigin(0.5);
+
+    // カードイラスト（ダミー）
+    this.add.rectangle(x, y - 5, 130, 80, 0x0d0d1a).setStrokeStyle(1, 0x444466);
+    this.add.text(x, y - 5, '🃏', { fontSize: '36px' }).setOrigin(0.5);
+
+    // 説明
+    this.add.text(x, y + 55, item.desc, {
+      fontSize: '11px', fontFamily: 'sans-serif', color: '#aaaacc',
+      align: 'center', wordWrap: { width: 140 }
+    }).setOrigin(0.5);
+
+    // 値段ボタン
+    const priceBtn = this.add.rectangle(x, y + 80, 100, 28, 0x3d2b1f).setStrokeStyle(1, 0xd4a853).setInteractive();
+    const priceText = this.add.text(x, y + 80, `🪙 ${item.price} G`, {
+      fontSize: '13px', fontFamily: 'sans-serif', color: '#f5d78e'
+    }).setOrigin(0.5);
+
+    // ホバー
+    card.on('pointerover', () => {
+      card.setStrokeStyle(2, 0xf5d78e);
+      this.dialogText.setText(`「${item.name.split('\n')[0]}」か。\nいい選択だ。`);
+    });
+    card.on('pointerout', () => {
+      card.setStrokeStyle(2, 0x6688aa);
+    });
+
+    // 購入
+    priceBtn.on('pointerover', () => priceBtn.setFillStyle(0x5c3d1e));
+    priceBtn.on('pointerout', () => priceBtn.setFillStyle(0x3d2b1f));
+    priceBtn.on('pointerdown', () => {
+      if (this.gold >= item.price) {
+        this.gold -= item.price;
+        this.goldText.setText(`🪙 ${this.gold} G`);
+        // 購入エフェクト
+        this.tweens.add({
+          targets: [card, priceBtn, priceText],
+          alpha: 0, duration: 400,
+          onComplete: () => { card.destroy(); priceBtn.destroy(); priceText.destroy(); }
+        });
+        this.dialogText.setText(`${item.name.split('\n')[0]}を手に入れた！`);
+        // 金テキストをぴかっと
+        this.tweens.add({ targets: this.goldText, scaleX: 1.2, scaleY: 1.2, yoyo: true, duration: 200 });
+      } else {
+        this.dialogText.setText('金が足りない。\nもっと勝ってから来い。');
+        this.cameras.main.shake(200, 0.005);
+      }
+    });
+  }
+
+  // ③ 毎フレーム処理（今回は不要）
+  update() {}
+}
+
+// ===============================
+// Phaser.Gameの設定
+// ===============================
+new Phaser.Game({
+  type: Phaser.AUTO,       // WebGLかCanvasを自動選択
+  width: 640,
+  height: 400,
+  backgroundColor: '#1a1a2e',
+  parent: 'game-container',
+  scene: ShopScene
+});
+</script>
+</body>
+</html>
