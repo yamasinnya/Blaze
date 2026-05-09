@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blaze — 対戦</title>
+  <style>
+    :root {
+      --bg:      #080814;
+      --bg2:     #10102a;
+      --bg3:     #18183a;
+      --gold:    #d4a853;
+      --gold2:   #8b6010;
+      --text:    #ddddf0;
+      --dim:     #7777aa;
+      --faint:   #444466;
+      --border:  #252545;
+      --border2: #353560;
+      --green:      #4a9922;
+      --green-bg:   #081808;
+      --green-bd:   #2a5510;
+      --green-text: #88dd44;
+      --red:      #cc3333;
+      --red-bg:   #1a0808;
+      --red-bd:   #661515;
+      --red-text: #ff6655;
+      --blue:     #3a88cc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      min-height: 100vh;
+      padding-bottom: 2rem;
+    }
+
+    /* ---- ヘッダー ---- */
+    .site-header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--gold2);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .site-title { font-size: 18px; color: var(--gold); letter-spacing: 3px; font-weight: 700; }
+    .site-sub   { font-size: 11px; color: var(--dim); }
+
+    /* ---- ラッパー ---- */
+    .wrap { max-width: 640px; margin: 0 auto; padding: 12px 12px 0; }
+
+    /* ---- タブ ---- */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tab {
+      padding: 6px 18px; font-size: 13px;
+      border: 1px solid var(--border2); border-radius: 8px;
+      background: transparent; color: var(--dim);
+      cursor: pointer; font-family: inherit;
+    }
+    .tab.active { background: var(--bg3); color: var(--text); border-color: var(--gold2); }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ---- ターンヘッダー ---- */
+    .turn-hdr {
+      border-radius: 10px; padding: 9px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+      border: 1px solid; transition: background 0.4s, border-color 0.4s;
+    }
+    .turn-hdr.my-turn    { background: var(--green-bg); border-color: var(--green-bd); }
+    .turn-hdr.enemy-turn { background: var(--red-bg);   border-color: var(--red-bd); }
+    .turn-who { font-size: 14px; font-weight: 600; }
+    .turn-hdr.my-turn    .turn-who { color: var(--green-text); }
+    .turn-hdr.enemy-turn .turn-who { color: var(--red-text); }
+    .turn-right { display: flex; gap: 6px; align-items: center; }
+    .turn-badge {
+      font-size: 12px; padding: 2px 9px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; color: var(--dim);
+    }
+    .phase-badge { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 6px; border: 1px solid; }
+    .phase-badge.main   { background: rgba(74,153,34,0.15); color: var(--green-text); border-color: var(--green-bd); }
+    .phase-badge.attack { background: rgba(204,51,51,0.25); color: #ff8877; border-color: var(--red-bd); }
+    .phase-badge.summon { background: rgba(204,51,51,0.15); color: #ffaa88; border-color: #883322; }
+
+    /* ---- カード風パネル ---- */
+    .panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .sec-label { font-size: 11px; color: var(--faint); margin-bottom: 8px; letter-spacing: 0.5px; }
+
+    /* ---- 戦場 ---- */
+    .battlefield {
+      min-height: 70px; display: flex; align-items: center;
+      gap: 10px; flex-wrap: wrap; padding: 4px 0;
+    }
+    .empty-msg { font-size: 13px; color: var(--faint); }
+
+    /* ---- ライオン ---- */
+    .lion-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; user-select: none; }
+    .lion {
+      display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 48px; height: 48px; background: var(--bg3);
+      border: 1px solid var(--border2); border-radius: 8px;
+      transition: transform 0.3s, opacity 0.3s; position: relative;
+    }
+    .lion-wrap:hover .lion { border-color: var(--dim); }
+    .lion.tapped      { transform: rotate(90deg); }
+    .lion.st-removed  { opacity: 0.25; border-color: #bb3333 !important; }
+    .lion.st-blink    { opacity: 0.3;  border-color: #3366bb !important; }
+    .lion-icon { font-size: 20px; }
+    .lion-stat { font-size: 9px; color: var(--faint); }
+    .lion-badge {
+      position: absolute; top: -7px; right: -7px;
+      width: 17px; height: 17px; border-radius: 50%;
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lion-badge.x { background: #cc2222; color: #fff; }
+    .lion-badge.b { background: #1155aa; color: #fff; font-size: 9px; }
+    .lion-label { font-size: 10px; color: var(--dim); min-height: 14px; }
+
+    @keyframes popIn { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+    @keyframes popInTapped { 0%{transform:rotate(90deg) scale(0)} 70%{transform:rotate(90deg) scale(1.15)} 100%{transform:rotate(90deg) scale(1)} }
+    .lion.new-summon { animation: popInTapped 0.35s ease-out; }
+
+    /* ---- 予告 ---- */
+    .forecast {
+      background: var(--bg3); border-radius: 6px; padding: 7px 10px;
+      font-size: 12px; color: var(--dim);
+      border-left: 2px solid var(--red-bd); margin-top: 8px;
+    }
+    .forecast strong { color: var(--red-text); }
+
+    /* ---- ライフ ---- */
+    .life-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .life-block {
+      flex: 1; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 13px;
+    }
+    .life-label { font-size: 11px; color: var(--faint); margin-bottom: 4px; }
+    .life-num   { font-size: 30px; font-weight: 500; color: var(--text); margin-bottom: 5px; }
+    .life-num.danger { color: var(--red-text); }
+    .hp-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 9px; }
+    .hp-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+    .hp-fill.enemy  { background: var(--red); }
+    .hp-fill.enemy.low  { background: #881111; }
+    .hp-fill.player { background: var(--green); }
+    .hp-fill.player.low { background: var(--red); }
+    .adj-row { display: flex; gap: 6px; }
+    .adj-btn {
+      flex: 1; height: 32px;
+      border: 1px solid var(--border2); border-radius: 7px;
+      background: transparent; cursor: pointer; font-size: 13px;
+      font-family: inherit; color: var(--text);
+    }
+    .adj-btn:active { transform: scale(0.95); }
+    .adj-btn.minus { color: var(--red-text);   border-color: var(--red-bd); }
+    .adj-btn.plus  { color: var(--green-text);  border-color: var(--green-bd); }
+
+    /* ---- ボタン ---- */
+    .action-btn {
+      width: 100%; padding: 12px; font-size: 14px;
+      border: 1px solid var(--border2); border-radius: 9px;
+      background: transparent; color: var(--text);
+      cursor: pointer; font-family: inherit; margin-bottom: 7px;
+      transition: background 0.15s;
+    }
+    .action-btn:hover { background: var(--bg3); }
+    .action-btn.resolve { border-color: var(--red-bd); color: var(--red-text); }
+    .action-btn.resolve:hover { background: var(--red-bg); }
+
+    /* ---- ログ ---- */
+    .log { max-height: 88px; overflow-y: auto; font-size: 12px; color: var(--dim); line-height: 1.9; }
+    .log-entry.enemy  { color: var(--red-text); }
+    .log-entry.player { color: #5599dd; }
+    .log-entry.system { color: var(--faint); font-style: italic; }
+
+    /* ---- コントロールパネル ---- */
+    .ctrl-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .ctrl-info { flex: 1; }
+    .ctrl-label { font-size: 13px; color: var(--text); }
+    .ctrl-sub   { font-size: 11px; color: var(--faint); margin-top: 1px; }
+    .ctrl-val   { font-size: 16px; font-weight: 600; min-width: 34px; text-align: center; color: var(--gold); }
+    .ctrl-btn {
+      width: 34px; height: 34px;
+      border: 1px solid var(--border2); border-radius: 7px;
+      background: transparent; cursor: pointer;
+      font-size: 16px; font-family: inherit; color: var(--text);
+    }
+    .ctrl-btn:active { transform: scale(0.94); }
+    .apply-btn {
+      width: 100%; margin-top: 16px; padding: 11px; font-size: 13px;
+      border: 1px solid var(--gold2); border-radius: 9px;
+      background: transparent; color: var(--gold);
+      cursor: pointer; font-family: inherit;
+    }
+    .apply-btn:hover { background: rgba(212,168,83,0.1); }
+
+    /* ---- 結果オーバーレイ ---- */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center; z-index: 10;
+    }
+    .overlay-card {
+      background: var(--bg2); border-radius: 14px;
+      padding: 2rem 2rem 1.5rem; max-width: 280px; width: 90%;
+      text-align: center; border: 1px solid var(--border2);
+    }
+    .overlay-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .overlay-title.win  { color: var(--gold); }
+    .overlay-title.lose { color: var(--red-text); }
+    .overlay-sub { font-size: 14px; color: var(--dim); margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<div class="site-header">
+  <div>
+    <div class="site-title">B L A Z E</div>
+    <div class="site-sub">ステージ 1 — サバンナの試練</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('play')">ゲーム</button>
+    <button class="tab" onclick="switchTab('ctrl')">コントロール</button>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div class="screen active" id="screen-play">
+
+    <div class="turn-hdr my-turn" id="turn-hdr">
+      <span class="turn-who" id="turn-who">自分のターン</span>
+      <div class="turn-right">
+        <span class="turn-badge" id="turn-badge">ターン 1</span>
+        <span class="phase-badge main" id="phase-badge">メイン</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-label">相手の戦場（クリックで状態変更）</div>
+      <div class="battlefield" id="battlefield">
+        <span class="empty-msg">まだいない</span>
+      </div>
+      <div class="forecast" id="forecast"></div>
+    </div>
+
+    <div class="life-row">
+      <div class="life-block">
+        <div class="life-label">相手のライフ</div>
+        <div class="life-num" id="enemy-hp">10</div>
+        <div class="hp-bar"><div class="hp-fill enemy" id="enemy-bar" style="width:100%"></div></div>
+        <div class="adj-row">
+          <button class="adj-btn minus" onclick="adj('enemy',-5)">−5</button>
+          <button class="adj-btn minus" onclick="adj('enemy',-1)">−1</button>
+          <button class="adj-btn plus"  onclick="adj('enemy',+1)">+1</button>
+        </div>
+      </div>
+      <div class="life-block">
+        <div class="life-label">自分のライフ</div>
+        <div class="life-num" id="player-hp">40</div>
+        <div class="hp-bar"><div class="hp-fill player" id="player-bar" style="width:100%"></div></div>
+        <div class="adj-row">
+          <button class="adj-btn minus" onclick="adj('player',-5)">−5</button>
+          <button class="adj-btn minus" onclick="adj('player',-1)">−1</button>
+          <button class="adj-btn plus"  onclick="adj('player',+1)">+1</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="action-btn" id="main-btn" onclick="mainAction()">ターン終了 →</button>
+    <button class="action-btn resolve" id="resolve-btn" onclick="resolveAttack()" style="display:none;">
+      戦闘解決 — ブロックされてないやつが攻撃
+    </button>
+
+    <div class="panel">
+      <div class="sec-label">ログ</div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <!-- コントロールパネル -->
+  <div class="screen" id="screen-ctrl">
+    <div class="panel">
+      <div class="sec-label">敵スクリプト設定</div>
+      <div class="ctrl-row">
+        <div class="ctrl-info">
+          <div class="ctrl-label">召喚ターン間隔</div>
+          <div class="ctrl-sub">Nの倍数ターンに召喚</div>
+        </div>
+        <button class="ctrl-btn" onclick="changeCtrl('interval',-1)">−</button>
+        <div class="ctrl-val" id="ctrl-interval">2</div>
+        <button class="ctrl-btn" onclick="changeCtrl('interval',1)">+</button>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-info">
+          <div class="ctrl-label">召喚数の増加ペース</div>
+          <div class="ctrl-sub">Nターンごとに+1体</div>
+        </div>
+        <button class="ctrl-btn" onclick="changeCtrl('escalate',-1)">−</button>
+        <div class="ctrl-val" id="ctrl-escalate">3</div>
+        <button class="ctrl-btn" onclick="changeCtrl('escalate',1)">+</button>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-info">
+          <div class="ctrl-label">ライオンの攻撃力</div>
+          <div class="ctrl-sub">1体あたりのダメージ</div>
+        </div>
+        <button class="ctrl-btn" onclick="changeCtrl('power',-1)">−</button>
+        <div class="ctrl-val" id="ctrl-power">2</div>
+        <button class="ctrl-btn" onclick="changeCtrl('power',1)">+</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="sec-label">初期値設定</div>
+      <div class="ctrl-row">
+        <div class="ctrl-info"><div class="ctrl-label">相手の初期ライフ</div></div>
+        <button class="ctrl-btn" onclick="changeCtrl('enemyMax',-5)">−</button>
+        <div class="ctrl-val" id="ctrl-enemyMax">10</div>
+        <button class="ctrl-btn" onclick="changeCtrl('enemyMax',5)">+</button>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-info"><div class="ctrl-label">自分の初期ライフ</div></div>
+        <button class="ctrl-btn" onclick="changeCtrl('playerMax',-5)">−</button>
+        <div class="ctrl-val" id="ctrl-playerMax">40</div>
+        <button class="ctrl-btn" onclick="changeCtrl('playerMax',5)">+</button>
+      </div>
+    </div>
+    <button class="apply-btn" onclick="applyAndReset()">この設定でリセット →</button>
+  </div>
+</div>
+
+<script>
+let cfg = { interval:2, escalate:3, power:2, enemyMax:10, playerMax:40 };
+let turn=1, enemyHP=10, playerHP=40;
+let lions=[], nextId=1, gameOver=false, phase='main';
+const STATES = ['normal','removed','blink'];
+
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((el,i) =>
+    el.classList.toggle('active', (i===0&&t==='play')||(i===1&&t==='ctrl')));
+  document.getElementById('screen-play').classList.toggle('active', t==='play');
+  document.getElementById('screen-ctrl').classList.toggle('active', t==='ctrl');
+}
+
+function changeCtrl(key, delta) {
+  const mins = { interval:1, escalate:1, power:1, enemyMax:5, playerMax:5 };
+  cfg[key] = Math.max(mins[key], cfg[key]+delta);
+  document.getElementById('ctrl-'+key).textContent = cfg[key];
+}
+
+function applyAndReset() {
+  enemyHP=cfg.enemyMax; playerHP=cfg.playerMax;
+  turn=1; lions=[]; nextId=1; gameOver=false; phase='main';
+  document.getElementById('turn-badge').textContent = 'ターン 1';
+  setPhase('my','main');
+  document.getElementById('main-btn').style.display = '';
+  document.getElementById('resolve-btn').style.display = 'none';
+  renderHP(); renderBattlefield(); updateForecast();
+  document.getElementById('log').innerHTML = '';
+  log('設定を適用してリセットしました。','system');
+  switchTab('play');
+}
+
+function log(msg, type='system') {
+  document.getElementById('log').insertAdjacentHTML('afterbegin',
+    `<div class="log-entry ${type}">${msg}</div>`);
+}
+
+function setPhase(who, ph) {
+  const hdr   = document.getElementById('turn-hdr');
+  const whoEl = document.getElementById('turn-who');
+  const phEl  = document.getElementById('phase-badge');
+  hdr.className  = 'turn-hdr ' + (who==='my' ? 'my-turn' : 'enemy-turn');
+  whoEl.textContent = who==='my' ? '自分のターン' : '相手のターン';
+  const map = { main:['メイン','main'], attack:['アタック宣言中','attack'], summon:['召喚フェイズ','summon'] };
+  const [txt, cls] = map[ph] || ['メイン','main'];
+  phEl.textContent = txt;
+  phEl.className = 'phase-badge ' + cls;
+}
+
+function renderHP() {
+  document.getElementById('enemy-hp').textContent = Math.max(0, enemyHP);
+  const ePct = Math.max(0, enemyHP / cfg.enemyMax * 100);
+  const eBar = document.getElementById('enemy-bar');
+  eBar.style.width = ePct + '%';
+  eBar.className = 'hp-fill enemy' + (ePct < 30 ? ' low' : '');
+
+  const pEl = document.getElementById('player-hp');
+  pEl.textContent = Math.max(0, playerHP);
+  pEl.className = 'life-num' + (playerHP <= 10 ? ' danger' : '');
+  const pPct = Math.max(0, playerHP / cfg.playerMax * 100);
+  const pBar = document.getElementById('player-bar');
+  pBar.style.width = pPct + '%';
+  pBar.className = 'hp-fill player' + (pPct < 25 ? ' low' : '');
+}
+
+function adj(who, delta) {
+  if (gameOver) return;
+  if (who === 'enemy') {
+    enemyHP = Math.min(cfg.enemyMax, Math.max(0, enemyHP+delta));
+    log(`相手ライフ ${delta>0?'+':''}${delta} → ${enemyHP}`, delta<0 ? 'player' : 'system');
+    if (enemyHP <= 0) { renderHP(); showEnd('victory'); return; }
+  } else {
+    playerHP = Math.min(cfg.playerMax, Math.max(0, playerHP+delta));
+    log(`自分ライフ ${delta>0?'+':''}${delta} → ${playerHP}`, delta<0 ? 'enemy' : 'system');
+    if (playerHP <= 0) { renderHP(); showEnd('defeat'); return; }
+  }
+  renderHP();
+}
+
+function cycleLion(id) {
+  const l = lions.find(x => x.id===id);
+  if (!l || l.dead) return;
+  const idx = STATES.indexOf(l.state || 'normal');
+  l.state = STATES[(idx+1) % STATES.length];
+  renderBattlefield();
+  const labels = { normal:'通常に戻した', removed:'除去マーク', blink:'ブリンク' };
+  log(`ライオン #${id}：${labels[l.state]}`, 'player');
+}
+
+function renderBattlefield() {
+  const bf    = document.getElementById('battlefield');
+  const alive = lions.filter(l => !l.dead);
+  if (alive.length === 0) {
+    bf.innerHTML = '<span class="empty-msg">まだいない</span>';
+    return;
+  }
+  bf.innerHTML = alive.map(l => {
+    const st    = l.state || 'normal';
+    const tapCls = l.canAttack ? 'tapped' : '';
+    const stCls  = st==='removed' ? 'st-removed' : st==='blink' ? 'st-blink' : '';
+    const badge  = st==='removed' ? '<div class="lion-badge x">×</div>'
+                 : st==='blink'   ? '<div class="lion-badge b">B</div>' : '';
+    const lbl    = st==='removed' ? '除去' : st==='blink' ? 'ブリンク' : l.canAttack ? '' : '召喚酔い';
+    return `<div class="lion-wrap" onclick="cycleLion(${l.id})">
+      <div class="lion ${tapCls} ${stCls}" id="l${l.id}">
+        <span class="lion-icon">🦁</span>
+        <span class="lion-stat">${cfg.power}/1</span>
+        ${badge}
+      </div>
+      <span class="lion-label">${lbl}</span>
+    </div>`;
+  }).join('');
+}
+
+function summonCount(t) { return 1 + Math.floor((t-1) / cfg.escalate); }
+
+function updateForecast() {
+  const next  = turn + 1;
+  const alive = lions.filter(l => !l.dead);
+  const parts = [];
+  if (next % cfg.interval === 0) {
+    parts.push(`ライオン${summonCount(next)}体召喚`);
+  }
+  const nextAtk = alive.filter(l => l.summonTurn < next && (l.state||'normal')==='normal');
+  if (nextAtk.length > 0) parts.push(`${nextAtk.length}体がアタック`);
+  if (parts.length === 0) parts.push('待機');
+  document.getElementById('forecast').innerHTML =
+    '次のターン：<strong>' + parts.join(' / ') + '</strong>';
+}
+
+function mainAction() {
+  if (gameOver) return;
+  turn++;
+  document.getElementById('turn-badge').textContent = 'ターン ' + turn;
+
+  // ×ライオンを削除
+  lions.forEach(l => { if (!l.dead && (l.state||'normal')==='removed') l.dead=true; });
+
+  // 召喚酔い解除
+  lions.forEach(l => { if (!l.dead && l.summonTurn < turn) l.canAttack=true; });
+
+  // 召喚フェイズ
+  if (turn % cfg.interval === 0) {
+    setPhase('enemy','summon');
+    const count = summonCount(turn);
+    for (let i=0; i<count; i++)
+      lions.push({ id:nextId++, dead:false, summonTurn:turn, canAttack:false, state:'normal' });
+    log(`敵：サバンナライオン ${count}体 召喚（召喚酔い）`, 'enemy');
+    renderBattlefield();
+  }
+
+  const attackers = lions.filter(l => !l.dead && l.canAttack && (l.state||'normal')==='normal');
+  if (attackers.length === 0) {
+    setPhase('my','main');
+    renderBattlefield();
+    updateForecast();
+    return;
+  }
+
+  setTimeout(() => {
+    phase = 'attack';
+    setPhase('enemy','attack');
+    document.getElementById('main-btn').style.display = 'none';
+    document.getElementById('resolve-btn').style.display = '';
+    renderBattlefield();
+    log(`敵：${attackers.length}体がアタック宣言！`, 'enemy');
+  }, 500);
+}
+
+function resolveAttack() {
+  if (gameOver) return;
+  const attackers  = lions.filter(l => !l.dead && l.canAttack);
+  const unblocked  = attackers.filter(l => (l.state||'normal')==='normal');
+  const removed    = attackers.filter(l => l.state==='removed');
+
+  removed.forEach(l => { l.dead=true; log(`ライオン #${l.id} 除去！`, 'player'); });
+  attackers.forEach(l => { if (!l.dead) l.state='normal'; });
+
+  const dmgTargets = unblocked.filter(l => !l.dead);
+  if (dmgTargets.length > 0) {
+    const dmg = dmgTargets.length * cfg.power;
+    log(`ブロックされていない${dmgTargets.length}体から ${dmg}点ダメージ！`, 'enemy');
+    playerHP = Math.max(0, playerHP - dmg);
+  }
+
+  phase = 'main';
+  setPhase('my','main');
+  document.getElementById('main-btn').style.display = '';
+  document.getElementById('resolve-btn').style.display = 'none';
+  renderHP(); renderBattlefield(); updateForecast();
+  if (playerHP <= 0) showEnd('defeat');
+}
+
+function showEnd(result) {
+  gameOver = true;
+  const win = result === 'victory';
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="overlay">
+      <div class="overlay-card">
+        <div class="overlay-title ${win?'win':'lose'}">${win ? '勝利！' : '敗北'}</div>
+        <div class="overlay-sub">${win
+          ? '次のパックを開ける権利を得た。'
+          : 'ライフが尽きた。もう一度。'}</div>
+        <button class="action-btn" onclick="location.reload()">リセット</button>
+      </div>
+    </div>`);
+}
+
+// 初期化
+log('カードショップBlazeへようこそ。', 'system');
+renderHP(); renderBattlefield(); updateForecast(); setPhase('my','main');
+</script>
+</body>
+</html>
