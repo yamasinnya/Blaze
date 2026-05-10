@@ -16,7 +16,7 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino Sans','Yu Gothic',sans-serif;min-height:100vh;}
 
-    /* ---- ヘッダー（常時表示） ---- */
+    /* ---- ヘッダー ---- */
     #hdr{background:var(--bg2);border-bottom:1px solid var(--gold2);padding:8px 14px;
       display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;}
     #hdr-title{font-size:16px;color:var(--gold);letter-spacing:3px;font-weight:700;}
@@ -31,8 +31,8 @@
 
     /* ---- マップ ---- */
     #map-svg{width:100%;max-width:420px;display:block;margin:0 auto;}
-    .node-glow{animation:pulse 0.9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center;}
-    @keyframes pulse{from{opacity:0.1;transform:scale(0.82);}to{opacity:0.45;transform:scale(1.22);}}
+    .node-glow{animation:pulse .9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center;}
+    @keyframes pulse{from{opacity:.1;transform:scale(.82);}to{opacity:.45;transform:scale(1.22);}}
     #map-hint{text-align:center;font-size:12px;color:var(--dim);margin-top:10px;}
 
     /* ---- パネル ---- */
@@ -116,19 +116,6 @@
     .log-entry.player{color:#5599dd;}
     .log-entry.system{color:var(--faint);font-style:italic;}
 
-    /* ---- 設定（折りたたみ） ---- */
-    #b-settings{display:none;}
-    #b-settings.open{display:block;}
-    .ctrl-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
-    .ctrl-row:last-child{border:none;}
-    .ctrl-info{flex:1;}
-    .ctrl-label{font-size:13px;color:var(--text);}
-    .ctrl-sub{font-size:11px;color:var(--faint);margin-top:1px;}
-    .ctrl-val{font-size:16px;font-weight:600;min-width:34px;text-align:center;color:var(--gold);}
-    .ctrl-btn{width:34px;height:34px;border:1px solid var(--border2);border-radius:7px;
-      background:transparent;cursor:pointer;font-size:16px;font-family:inherit;color:var(--text);}
-    .ctrl-btn:active{transform:scale(.94);}
-
     /* ---- ショップ / レリック ---- */
     .screen-title{font-size:18px;font-weight:600;color:var(--gold);margin-bottom:4px;}
     .screen-sub{font-size:12px;color:var(--dim);margin-bottom:16px;}
@@ -144,7 +131,6 @@
     /* ---- ゲームオーバー ---- */
     #s-gameover .wrap{text-align:center;padding-top:80px;}
     #go-title{font-size:32px;font-weight:700;margin-bottom:8px;}
-    #go-title.win{color:var(--gold);}
     #go-title.lose{color:var(--red-t);}
     #go-sub{font-size:14px;color:var(--dim);margin-bottom:2rem;}
   </style>
@@ -179,13 +165,13 @@
       </div>
     </div>
     <div class="panel">
-      <div class="sec-label">相手の戦場（クリックで状態変更）</div>
+      <div class="sec-label" id="b-enemy-label">相手の戦場（クリックで状態変更）</div>
       <div class="battlefield" id="b-field"><span class="empty-msg">まだいない</span></div>
       <div class="forecast" id="b-forecast"></div>
     </div>
     <div class="life-row">
       <div class="life-block">
-        <div class="life-label">相手のライフ</div>
+        <div class="life-label" id="b-enemy-name">相手のライフ</div>
         <div class="life-num" id="b-ehp">10</div>
         <div class="hp-bar"><div class="hp-fill enemy" id="b-ebar" style="width:100%"></div></div>
         <div class="adj-row">
@@ -213,33 +199,6 @@
       <div class="sec-label">ログ</div>
       <div class="log" id="b-log"></div>
     </div>
-    <button class="action-btn" onclick="toggleSettings()" style="font-size:12px;color:var(--dim)">⚙ 難易度設定</button>
-    <div id="b-settings" class="panel">
-      <div class="ctrl-row">
-        <div class="ctrl-info"><div class="ctrl-label">召喚間隔</div><div class="ctrl-sub">Nの倍数ターンに召喚</div></div>
-        <button class="ctrl-btn" onclick="chCfg('interval',-1)">−</button>
-        <div class="ctrl-val" id="ci-interval">2</div>
-        <button class="ctrl-btn" onclick="chCfg('interval',1)">+</button>
-      </div>
-      <div class="ctrl-row">
-        <div class="ctrl-info"><div class="ctrl-label">増加ペース</div><div class="ctrl-sub">Nターンごとに+1体</div></div>
-        <button class="ctrl-btn" onclick="chCfg('escalate',-1)">−</button>
-        <div class="ctrl-val" id="ci-escalate">3</div>
-        <button class="ctrl-btn" onclick="chCfg('escalate',1)">+</button>
-      </div>
-      <div class="ctrl-row">
-        <div class="ctrl-info"><div class="ctrl-label">攻撃力</div><div class="ctrl-sub">1体あたりのダメージ</div></div>
-        <button class="ctrl-btn" onclick="chCfg('power',-1)">−</button>
-        <div class="ctrl-val" id="ci-power">2</div>
-        <button class="ctrl-btn" onclick="chCfg('power',1)">+</button>
-      </div>
-      <div class="ctrl-row">
-        <div class="ctrl-info"><div class="ctrl-label">敵の初期ライフ</div></div>
-        <button class="ctrl-btn" onclick="chCfg('enemyMax',-5)">−</button>
-        <div class="ctrl-val" id="ci-enemyMax">10</div>
-        <button class="ctrl-btn" onclick="chCfg('enemyMax',5)">+</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -264,28 +223,28 @@
   </div>
 </div>
 
+<script src="enemies.js"></script>
 <script>
 'use strict';
 
 // =====================
-// 共有ゲーム状態（Routeをまたいで保持）
+// 共有ゲーム状態
 // =====================
 const G = {
   playerHP:    40,
   playerMaxHP: 40,
   relics: [{ id:'heal5', name:'毎戦後+5回復', icon:'🌿', desc:'各戦闘終了後、5点回復する' }],
   mapPos: null,
-  cfg: { interval:2, escalate:3, power:2, enemyMax:10 },
 };
 
 // =====================
-// Router（Slimのgoto相当）
+// Router
 // =====================
-function goto(name, data={}) {
+function goto(name, data = {}) {
   document.querySelectorAll('.screen').forEach(el => el.hidden = true);
-  document.getElementById('s-'+name).hidden = false;
+  document.getElementById('s-' + name).hidden = false;
   updateHeader();
-  ({ map:initMap, battle:initBattle, shop:initShop, gameover:initGameover }[name]||(() => {}))(data);
+  ({ map:initMap, battle:initBattle, shop:initShop, gameover:initGameover }[name] || (() => {}))(data);
 }
 
 function updateHeader() {
@@ -293,7 +252,7 @@ function updateHeader() {
   hpEl.textContent = `❤️ ${G.playerHP} / ${G.playerMaxHP}`;
   hpEl.className = G.playerHP <= 10 ? 'danger' : '';
   document.getElementById('hdr-relics').textContent =
-    G.relics.map(r => r.icon + ' ' + r.name).join('　') || '';
+    G.relics.map(r => r.icon + ' ' + r.name).join('　');
 }
 
 // =====================
@@ -330,7 +289,7 @@ function buildMapNodes() {
   const rc = MAP_ROWS_DEF.length;
   const xsByCount = { 1:[170], 2:[88,252], 3:[48,170,292] };
   mapNodes = MAP_ROWS_DEF.map((row, ri) => {
-    const y = H - mbottom - ri * (usableH / (rc-1));
+    const y = H - mbottom - ri * (usableH / (rc - 1));
     const xs = xsByCount[row.length];
     return row.map((type, ci) => ({
       x:xs[ci], y, type, row:ri, col:ci,
@@ -341,9 +300,9 @@ function buildMapNodes() {
 
 function getAvailableMapNodes() {
   if (!G.mapPos) return mapNodes[0];
-  const {row, col} = G.mapPos;
+  const { row, col } = G.mapPos;
   if (row >= MAP_CONNS_DEF.length) return [];
-  return (MAP_CONNS_DEF[row][col]||[]).map(ti => mapNodes[row+1][ti]);
+  return (MAP_CONNS_DEF[row][col] || []).map(ti => mapNodes[row + 1][ti]);
 }
 
 function initMap() {
@@ -354,69 +313,60 @@ function initMap() {
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-function svgEl(tag, attrs={}) {
+function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
-  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,String(v)));
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, String(v)));
   return el;
 }
 
 function renderMapSVG() {
   const svg = document.getElementById('map-svg');
   svg.innerHTML = '';
+  svg.appendChild(svgEl('rect', { width:340, height:480, fill:'#060610' }));
 
-  svg.appendChild(svgEl('rect',{width:340,height:480,fill:'#060610'}));
+  const t1 = svgEl('text', { 'text-anchor':'middle', x:170, y:20, 'font-size':14, fill:'#d4a853', 'letter-spacing':4, 'font-weight':'bold' });
+  t1.textContent = 'BLAZE'; svg.appendChild(t1);
+  const t2 = svgEl('text', { 'text-anchor':'middle', x:170, y:34, 'font-size':9, fill:'#444466' });
+  t2.textContent = 'ステージ 1 — サバンナの試練'; svg.appendChild(t2);
 
-  // タイトル
-  const t1 = svgEl('text',{'text-anchor':'middle',x:170,y:20,'font-size':14,fill:'#d4a853','letter-spacing':4,'font-weight':'bold'});
-  t1.textContent='BLAZE'; svg.appendChild(t1);
-  const t2 = svgEl('text',{'text-anchor':'middle',x:170,y:34,'font-size':9,fill:'#444466'});
-  t2.textContent='ステージ 1 — サバンナの試練'; svg.appendChild(t2);
-
-  // 接続線
-  MAP_CONNS_DEF.forEach((rowConns,ri) => {
-    rowConns.forEach((targets,ci) => {
+  MAP_CONNS_DEF.forEach((rowConns, ri) => {
+    rowConns.forEach((targets, ci) => {
       targets.forEach(ti => {
-        const f=mapNodes[ri][ci], to=mapNodes[ri+1][ti];
-        const fd=f.visited||f.current, td=to.visited||to.current;
-        let stroke='#1a2040', sw=1, op=0.4;
-        if(fd&&td){ stroke=MAP_TYPES[f.type].glow; sw=2; op=0.7; }
-        else if(fd){ stroke='#4455aa'; sw=1.5; op=0.45; }
-        svg.appendChild(svgEl('line',{x1:f.x,y1:f.y,x2:to.x,y2:to.y,
-          stroke,'stroke-width':sw,opacity:op}));
+        const f = mapNodes[ri][ci], to = mapNodes[ri + 1][ti];
+        const fd = f.visited || f.current, td = to.visited || to.current;
+        let stroke = '#1a2040', sw = 1, op = 0.4;
+        if (fd && td) { stroke = MAP_TYPES[f.type].glow; sw = 2; op = 0.7; }
+        else if (fd)  { stroke = '#4455aa'; sw = 1.5; op = 0.45; }
+        svg.appendChild(svgEl('line', { x1:f.x, y1:f.y, x2:to.x, y2:to.y, stroke, 'stroke-width':sw, opacity:op }));
       });
     });
   });
 
-  // ノード
   mapNodes.forEach(row => row.forEach(node => {
     const t = MAP_TYPES[node.type];
-    const R = node.type==='boss' ? 28 : 20;
-    const g = svgEl('g',{transform:`translate(${node.x},${node.y})`});
+    const R = node.type === 'boss' ? 28 : 20;
+    const g = svgEl('g', { transform:`translate(${node.x},${node.y})` });
 
     if (node.available) {
-      const glow = svgEl('circle',{r:R+10,fill:t.glow,opacity:0.18});
+      const glow = svgEl('circle', { r:R+10, fill:t.glow, opacity:0.18 });
       glow.classList.add('node-glow');
       g.appendChild(glow);
     }
 
-    const opNode = (node.visited && !node.current) ? 0.4 : 1;
-    g.appendChild(svgEl('circle',{
+    const op = (node.visited && !node.current) ? 0.4 : 1;
+    g.appendChild(svgEl('circle', {
       r: R,
-      fill: node.current ? t.stroke : t.fill,
+      fill:   node.current ? t.stroke : t.fill,
       stroke: node.current ? '#ffffff' : node.available ? t.stroke : node.visited ? t.stroke : '#252550',
       'stroke-width': node.current ? 2.5 : node.available ? 2 : 1.2,
-      opacity: opNode,
+      opacity: op,
     }));
 
-    const icon = svgEl('text',{'text-anchor':'middle','dominant-baseline':'middle',
-      y:-3,'font-size':node.type==='boss'?20:14,opacity:opNode});
-    icon.textContent = t.icon;
-    g.appendChild(icon);
+    const icon = svgEl('text', { 'text-anchor':'middle', 'dominant-baseline':'middle', y:-3, 'font-size':node.type==='boss'?20:14, opacity:op });
+    icon.textContent = t.icon; g.appendChild(icon);
 
-    const lbl = svgEl('text',{'text-anchor':'middle',y:node.type==='boss'?19:17,
-      'font-size':8, fill:node.available?'#9999bb':'#333355', opacity:opNode});
-    lbl.textContent = t.label;
-    g.appendChild(lbl);
+    const lbl = svgEl('text', { 'text-anchor':'middle', y:node.type==='boss'?19:17, 'font-size':8, fill:node.available?'#9999bb':'#333355', opacity:op });
+    lbl.textContent = t.label; g.appendChild(lbl);
 
     if (node.available) {
       g.style.cursor = 'pointer';
@@ -432,207 +382,225 @@ function pickMapNode(node) {
     prev.current = false; prev.visited = true;
   }
   node.current = true;
-  G.mapPos = {row:node.row, col:node.col};
+  G.mapPos = { row:node.row, col:node.col };
 
-  if (node.type==='shop' || node.type==='relic') goto('shop', {trigger:node.type});
-  else goto('battle', {nodeType:node.type});
+  if (node.type === 'shop' || node.type === 'relic') goto('shop', { trigger:node.type });
+  else goto('battle', { nodeType:node.type });
 }
 
 // =====================
 // BATTLE
 // =====================
 let B = {};
-const B_STATES = ['normal','removed','blink'];
+const B_STATES = ['normal', 'removed', 'blink'];
 
-function initBattle(data={}) {
-  B = { nodeType:data.nodeType||'normal', turn:1,
-        enemyHP:G.cfg.enemyMax, lions:[], nextId:1, gameOver:false, phase:'main' };
-  document.getElementById('b-badge').textContent = 'ターン 1';
+function initBattle(data = {}) {
+  const enemyKey = NODE_TO_ENEMY[data.nodeType] || 'savannah_lion';
+  const enemy    = ENEMIES[enemyKey];
+
+  B = {
+    enemy,
+    nodeType:     data.nodeType || 'normal',
+    enemyHP:      enemy.hp,
+    enemyMaxHP:   enemy.hp,
+    turn: 1, creatures: [], nextId: 1, gameOver: false, phase: 'main',
+  };
+
+  document.getElementById('b-badge').textContent  = 'ターン 1';
   document.getElementById('b-resolve-btn').style.display = 'none';
-  document.getElementById('b-main-btn').style.display = '';
+  document.getElementById('b-main-btn').style.display    = '';
   document.getElementById('b-log').innerHTML = '';
-  document.getElementById('b-settings').classList.remove('open');
-  syncCfgUI();
-  bSetPhase('my','main');
+  document.getElementById('b-enemy-name').textContent = enemy.name;
+  document.getElementById('b-enemy-label').textContent = `相手の戦場 — ${enemy.stageLabel}（クリックで状態変更）`;
+
+  bSetPhase('my', 'main');
   bRenderHP(); bRenderField(); bForecast();
-  bLog(`戦闘開始 — ${MAP_TYPES[B.nodeType]?.label||'雑魚戦'}`, 'system');
+  bLog(`戦闘開始 — ${enemy.name}`, 'system');
 }
 
-function bLog(msg, type='system') {
+// 敵スクリプトが呼び出すヘルパー
+function bSummon(count, opts = {}) {
+  const { power=2, toughness=1, icon='🦁', label='', isSliver=false, isArarabo=false } = opts;
+  for (let i = 0; i < count; i++) {
+    B.creatures.push({
+      id: B.nextId++, dead: false,
+      summonTurn: B.turn, canAttack: false, state: 'normal',
+      power, toughness, icon, label, isSliver, isArarabo,
+    });
+  }
+}
+
+// スリヴァーなどロード効果のある敵のための有効攻撃力計算
+function effectivePower(creature) {
+  if (B.enemy.lordPower && creature.isSliver) return B.enemy.lordPower(B.creatures);
+  return creature.power;
+}
+
+function bLog(msg, type = 'system') {
   document.getElementById('b-log').insertAdjacentHTML('afterbegin',
     `<div class="log-entry ${type}">${msg}</div>`);
 }
 
 function bSetPhase(who, ph) {
-  document.getElementById('b-who').textContent = who==='my' ? '自分のターン' : '相手のターン';
-  document.getElementById('b-hdr').className = 'turn-hdr '+(who==='my'?'my-turn':'enemy-turn');
-  const map={main:['メイン','main'],attack:['アタック宣言中','attack'],summon:['召喚フェイズ','summon']};
-  const [txt,cls] = map[ph]||['メイン','main'];
+  document.getElementById('b-who').textContent  = who === 'my' ? '自分のターン' : '相手のターン';
+  document.getElementById('b-hdr').className    = 'turn-hdr ' + (who === 'my' ? 'my-turn' : 'enemy-turn');
+  const map = { main:['メイン','main'], attack:['アタック宣言中','attack'], summon:['召喚フェイズ','summon'] };
+  const [txt, cls] = map[ph] || ['メイン', 'main'];
   const el = document.getElementById('b-phase');
-  el.textContent=txt; el.className='phase-badge '+cls;
+  el.textContent = txt; el.className = 'phase-badge ' + cls;
 }
 
 function bRenderHP() {
-  document.getElementById('b-ehp').textContent = Math.max(0,B.enemyHP);
-  const ep = Math.max(0, B.enemyHP/G.cfg.enemyMax*100);
+  document.getElementById('b-ehp').textContent = Math.max(0, B.enemyHP);
+  const ep = Math.max(0, B.enemyHP / B.enemyMaxHP * 100);
   const eb = document.getElementById('b-ebar');
-  eb.style.width=ep+'%'; eb.className='hp-fill enemy'+(ep<30?' low':'');
+  eb.style.width = ep + '%'; eb.className = 'hp-fill enemy' + (ep < 30 ? ' low' : '');
 
   const php = document.getElementById('b-php');
-  php.textContent = Math.max(0,G.playerHP);
-  php.className = 'life-num'+(G.playerHP<=10?' danger':'');
-  const pp = Math.max(0, G.playerHP/G.playerMaxHP*100);
+  php.textContent = Math.max(0, G.playerHP);
+  php.className = 'life-num' + (G.playerHP <= 10 ? ' danger' : '');
+  const pp = Math.max(0, G.playerHP / G.playerMaxHP * 100);
   const pb = document.getElementById('b-pbar');
-  pb.style.width=pp+'%'; pb.className='hp-fill player'+(pp<25?' low':'');
+  pb.style.width = pp + '%'; pb.className = 'hp-fill player' + (pp < 25 ? ' low' : '');
   updateHeader();
 }
 
 function bAdj(who, delta) {
   if (B.gameOver) return;
-  if (who==='e') {
-    B.enemyHP = Math.min(G.cfg.enemyMax, Math.max(0, B.enemyHP+delta));
-    bLog(`相手ライフ ${delta>0?'+':''}${delta} → ${B.enemyHP}`, delta<0?'player':'system');
-    if (B.enemyHP<=0) { bRenderHP(); bWin(); return; }
+  if (who === 'e') {
+    B.enemyHP = Math.min(B.enemyMaxHP, Math.max(0, B.enemyHP + delta));
+    bLog(`相手ライフ ${delta > 0 ? '+' : ''}${delta} → ${B.enemyHP}`, delta < 0 ? 'player' : 'system');
+    if (B.enemyHP <= 0) { bRenderHP(); bWin(); return; }
   } else {
-    G.playerHP = Math.min(G.playerMaxHP, Math.max(0, G.playerHP+delta));
-    bLog(`自分ライフ ${delta>0?'+':''}${delta} → ${G.playerHP}`, delta<0?'enemy':'system');
-    if (G.playerHP<=0) { bRenderHP(); bLose(); return; }
+    G.playerHP = Math.min(G.playerMaxHP, Math.max(0, G.playerHP + delta));
+    bLog(`自分ライフ ${delta > 0 ? '+' : ''}${delta} → ${G.playerHP}`, delta < 0 ? 'enemy' : 'system');
+    if (G.playerHP <= 0) { bRenderHP(); bLose(); return; }
   }
   bRenderHP();
 }
 
-function bCycleLion(id) {
-  const l = B.lions.find(x=>x.id===id);
-  if (!l||l.dead) return;
-  const idx = B_STATES.indexOf(l.state||'normal');
-  l.state = B_STATES[(idx+1)%B_STATES.length];
+function bCycleCreature(id) {
+  const c = B.creatures.find(x => x.id === id);
+  if (!c || c.dead) return;
+  const idx = B_STATES.indexOf(c.state || 'normal');
+  c.state = B_STATES[(idx + 1) % B_STATES.length];
   bRenderField();
-  bLog(`ライオン #${id}：${({normal:'通常',removed:'除去マーク',blink:'ブリンク'})[l.state]}`, 'player');
+  bLog(`${c.label || 'クリーチャー'} #${id}：${({normal:'通常',removed:'除去マーク',blink:'ブリンク'})[c.state]}`, 'player');
 }
 
 function bRenderField() {
-  const bf = document.getElementById('b-field');
-  const alive = B.lions.filter(l=>!l.dead);
-  if (!alive.length) { bf.innerHTML='<span class="empty-msg">まだいない</span>'; return; }
-  bf.innerHTML = alive.map(l => {
-    const st=l.state||'normal';
-    const badge=st==='removed'?'<div class="lion-badge x">×</div>':st==='blink'?'<div class="lion-badge b">B</div>':'';
-    const lbl=st==='removed'?'除去':st==='blink'?'ブリンク':l.canAttack?'':'召喚酔い';
-    return `<div class="lion-wrap" onclick="bCycleLion(${l.id})">
-      <div class="lion ${l.canAttack?'tapped':''} ${st==='removed'?'st-removed':st==='blink'?'st-blink':''}">
-        <span class="lion-icon">🦁</span>
-        <span class="lion-stat">${G.cfg.power}/1</span>${badge}
+  const bf    = document.getElementById('b-field');
+  const alive = B.creatures.filter(c => !c.dead);
+  if (!alive.length) { bf.innerHTML = '<span class="empty-msg">まだいない</span>'; return; }
+  bf.innerHTML = alive.map(c => {
+    const st  = c.state || 'normal';
+    const pow = effectivePower(c);
+    const badge = st === 'removed' ? '<div class="lion-badge x">×</div>'
+                : st === 'blink'   ? '<div class="lion-badge b">B</div>' : '';
+    const lbl = st === 'removed' ? '除去' : st === 'blink' ? 'ブリンク' : c.canAttack ? '' : '召喚酔い';
+    return `<div class="lion-wrap" onclick="bCycleCreature(${c.id})">
+      <div class="lion ${c.canAttack ? 'tapped' : ''} ${st==='removed'?'st-removed':st==='blink'?'st-blink':''}">
+        <span class="lion-icon">${c.icon}</span>
+        <span class="lion-stat">${pow}/${c.toughness}</span>${badge}
       </div>
       <span class="lion-label">${lbl}</span>
     </div>`;
   }).join('');
 }
 
-function bSummonCount(t) { return 1+Math.floor((t-1)/G.cfg.escalate); }
-
 function bForecast() {
-  const next=B.turn+1, alive=B.lions.filter(l=>!l.dead), parts=[];
-  if (next%G.cfg.interval===0) parts.push(`ライオン${bSummonCount(next)}体召喚`);
-  const atk=alive.filter(l=>l.summonTurn<next&&(l.state||'normal')==='normal');
-  if (atk.length) parts.push(`${atk.length}体がアタック`);
-  if (!parts.length) parts.push('待機');
-  document.getElementById('b-forecast').innerHTML='次のターン：<strong>'+parts.join(' / ')+'</strong>';
+  const text = B.enemy.forecast(B.turn, B.creatures);
+  document.getElementById('b-forecast').innerHTML = '次のターン：<strong>' + text + '</strong>';
 }
 
 function bMainAction() {
   if (B.gameOver) return;
   B.turn++;
-  document.getElementById('b-badge').textContent='ターン '+B.turn;
-  B.lions.forEach(l=>{ if(!l.dead&&(l.state||'normal')==='removed') l.dead=true; });
-  B.lions.forEach(l=>{ if(!l.dead&&l.summonTurn<B.turn) l.canAttack=true; });
-  if (B.turn%G.cfg.interval===0) {
-    bSetPhase('enemy','summon');
-    const count=bSummonCount(B.turn);
-    for(let i=0;i<count;i++)
-      B.lions.push({id:B.nextId++,dead:false,summonTurn:B.turn,canAttack:false,state:'normal'});
-    bLog(`敵：サバンナライオン ${count}体 召喚（召喚酔い）`,'enemy');
+  document.getElementById('b-badge').textContent = 'ターン ' + B.turn;
+
+  // ×クリーチャーを削除・召喚酔い解除
+  B.creatures.forEach(c => { if (!c.dead && (c.state||'normal') === 'removed') c.dead = true; });
+  B.creatures.forEach(c => { if (!c.dead && c.summonTurn < B.turn) c.canAttack = true; });
+
+  // 敵スクリプト実行
+  const countBefore = B.creatures.filter(c => !c.dead).length;
+  B.enemy.onTurn(B.turn, {
+    turn:      B.turn,
+    creatures: B.creatures,
+    summon:    (count, opts) => bSummon(count, opts),
+    log:       (msg, type)  => bLog(msg, type),
+  });
+  const didSummon = B.creatures.filter(c => !c.dead).length > countBefore;
+  if (didSummon) { bSetPhase('enemy', 'summon'); bRenderField(); }
+
+  const attackers = B.creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+  if (!attackers.length) { bSetPhase('my', 'main'); bRenderField(); bForecast(); return; }
+
+  setTimeout(() => {
+    bSetPhase('enemy', 'attack');
+    document.getElementById('b-main-btn').style.display    = 'none';
+    document.getElementById('b-resolve-btn').style.display = '';
     bRenderField();
-  }
-  const attackers=B.lions.filter(l=>!l.dead&&l.canAttack&&(l.state||'normal')==='normal');
-  if (!attackers.length) { bSetPhase('my','main'); bRenderField(); bForecast(); return; }
-  setTimeout(()=>{
-    bSetPhase('enemy','attack');
-    document.getElementById('b-main-btn').style.display='none';
-    document.getElementById('b-resolve-btn').style.display='';
-    bRenderField();
-    bLog(`敵：${attackers.length}体がアタック宣言！`,'enemy');
-  },500);
+    bLog(`敵：${attackers.length}体がアタック宣言！`, 'enemy');
+  }, 500);
 }
 
 function bResolve() {
   if (B.gameOver) return;
-  const attackers=B.lions.filter(l=>!l.dead&&l.canAttack);
-  const removed=attackers.filter(l=>l.state==='removed');
-  const unblocked=attackers.filter(l=>(l.state||'normal')==='normal');
-  removed.forEach(l=>{ l.dead=true; bLog(`ライオン #${l.id} 除去！`,'player'); });
-  attackers.forEach(l=>{ if(!l.dead) l.state='normal'; });
-  const dmgTargets=unblocked.filter(l=>!l.dead);
+  const attackers  = B.creatures.filter(c => !c.dead && c.canAttack);
+  const removed    = attackers.filter(c => c.state === 'removed');
+  const unblocked  = attackers.filter(c => (c.state||'normal') === 'normal');
+
+  removed.forEach(c => { c.dead = true; bLog(`${c.label||'クリーチャー'} #${c.id} 除去！`, 'player'); });
+  attackers.forEach(c => { if (!c.dead) c.state = 'normal'; });
+
+  const dmgTargets = unblocked.filter(c => !c.dead);
   if (dmgTargets.length) {
-    const dmg=dmgTargets.length*G.cfg.power;
-    bLog(`${dmgTargets.length}体から ${dmg}点ダメージ！`,'enemy');
-    G.playerHP=Math.max(0,G.playerHP-dmg);
+    const dmg = dmgTargets.reduce((sum, c) => sum + effectivePower(c), 0);
+    bLog(`${dmgTargets.length}体から ${dmg}点ダメージ！`, 'enemy');
+    G.playerHP = Math.max(0, G.playerHP - dmg);
   }
-  bSetPhase('my','main');
-  document.getElementById('b-main-btn').style.display='';
-  document.getElementById('b-resolve-btn').style.display='none';
+
+  bSetPhase('my', 'main');
+  document.getElementById('b-main-btn').style.display    = '';
+  document.getElementById('b-resolve-btn').style.display = 'none';
   bRenderHP(); bRenderField(); bForecast();
-  if (G.playerHP<=0) bLose();
+  if (G.playerHP <= 0) bLose();
 }
 
 function bWin() {
-  B.gameOver=true;
-  G.relics.forEach(r=>{
-    if(r.id==='heal5'){G.playerHP=Math.min(G.playerMaxHP,G.playerHP+5);bLog('🌿 5点回復！','system');}
+  B.gameOver = true;
+  G.relics.forEach(r => {
+    if (r.id === 'heal5') { G.playerHP = Math.min(G.playerMaxHP, G.playerHP + 5); bLog('🌿 5点回復！', 'system'); }
   });
   bRenderHP();
-  const needRelic = B.nodeType==='elite'||B.nodeType==='boss';
-  setTimeout(()=>goto(needRelic?'shop':'map', {trigger:B.nodeType}), 800);
+  const needRelic = B.nodeType === 'elite' || B.nodeType === 'boss';
+  setTimeout(() => goto(needRelic ? 'shop' : 'map', { trigger:B.nodeType }), 800);
 }
 
-function bLose() { B.gameOver=true; goto('gameover'); }
-
-function chCfg(key,delta) {
-  const mins={interval:1,escalate:1,power:1,enemyMax:5};
-  G.cfg[key]=Math.max(mins[key],G.cfg[key]+delta);
-  document.getElementById('ci-'+key).textContent=G.cfg[key];
-}
-function syncCfgUI() {
-  ['interval','escalate','power','enemyMax'].forEach(k=>{
-    document.getElementById('ci-'+k).textContent=G.cfg[k];
-  });
-}
-function toggleSettings() {
-  document.getElementById('b-settings').classList.toggle('open');
-}
+function bLose() { B.gameOver = true; goto('gameover'); }
 
 // =====================
 // SHOP / RELIC
 // =====================
 const RELIC_POOL = [
-  {id:'heal5',  name:'毎戦後+5回復',      icon:'🌿', desc:'各戦闘終了後、5点回復する'},
-  {id:'draw',   name:'《選択》',           icon:'🎴', desc:'各戦闘開始時、手札に加わる'},
-  {id:'land',   name:'特殊土地+1',         icon:'🏔', desc:'特殊土地を1枚追加できる'},
-  {id:'ramp',   name:'《不屈の自然》',     icon:'🌱', desc:'各戦闘開始時、手札に加わる'},
-  {id:'lord',   name:'《ヤヴィマヤの火》', icon:'🔥', desc:'全クリーチャーが+1/+1になる'},
+  { id:'heal5',  name:'毎戦後+5回復',      icon:'🌿', desc:'各戦闘終了後、5点回復する' },
+  { id:'draw',   name:'《選択》',           icon:'🎴', desc:'各戦闘開始時、手札に加わる' },
+  { id:'land',   name:'特殊土地+1',         icon:'🏔', desc:'特殊土地を1枚追加できる' },
+  { id:'ramp',   name:'《不屈の自然》',     icon:'🌱', desc:'各戦闘開始時、手札に加わる' },
+  { id:'lord',   name:'《ヤヴィマヤの火》', icon:'🔥', desc:'全クリーチャーが+1/+1になる' },
 ];
 
-function initShop(data={}) {
-  const trigger=data.trigger||'shop';
-  const owned=new Set(G.relics.map(r=>r.id));
-  const picks=RELIC_POOL.filter(r=>!owned.has(r.id)).sort(()=>Math.random()-.5).slice(0,3);
+function initShop(data = {}) {
+  const trigger = data.trigger || 'shop';
+  const owned   = new Set(G.relics.map(r => r.id));
+  const picks   = RELIC_POOL.filter(r => !owned.has(r.id)).sort(() => Math.random() - .5).slice(0, 3);
 
   document.getElementById('shop-title').textContent =
-    trigger==='elite'?'エリート撃破！  レリック獲得':
-    trigger==='boss' ?'ボス撃破！  レリック獲得':
-    'ショップ — レリック選択';
-  document.getElementById('shop-sub').textContent = picks.length?'1つ選んでください':'全部持っている！';
-
-  document.getElementById('shop-grid').innerHTML = picks.map(r=>`
+    trigger === 'elite' ? 'エリート撃破！  レリック獲得' :
+    trigger === 'boss'  ? 'ボス撃破！  レリック獲得'    : 'ショップ — レリック選択';
+  document.getElementById('shop-sub').textContent = picks.length ? '1つ選んでください' : '全部持っている！';
+  document.getElementById('shop-grid').innerHTML  = picks.map(r => `
     <div class="relic-card" onclick="pickRelic('${r.id}')">
       <div class="relic-icon">${r.icon}</div>
       <div class="relic-name">${r.name}</div>
@@ -641,8 +609,8 @@ function initShop(data={}) {
 }
 
 function pickRelic(id) {
-  const r=RELIC_POOL.find(x=>x.id===id);
-  if(r) G.relics.push(r);
+  const r = RELIC_POOL.find(x => x.id === id);
+  if (r) G.relics.push(r);
   updateHeader();
   goto('map');
 }
@@ -651,13 +619,11 @@ function shopSkip() { goto('map'); }
 // =====================
 // GAME OVER
 // =====================
-function initGameover() {
-  document.getElementById('go-title').textContent='敗北';
-}
+function initGameover() {}
 function restartGame() {
-  G.playerHP=40; G.playerMaxHP=40;
-  G.relics=[{id:'heal5',name:'毎戦後+5回復',icon:'🌿',desc:'各戦闘終了後、5点回復する'}];
-  G.mapPos=null; mapNodes=[];
+  G.playerHP = 40; G.playerMaxHP = 40;
+  G.relics   = [{ id:'heal5', name:'毎戦後+5回復', icon:'🌿', desc:'各戦闘終了後、5点回復する' }];
+  G.mapPos   = null; mapNodes = [];
   goto('map');
 }
 
