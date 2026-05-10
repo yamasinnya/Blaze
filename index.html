@@ -281,6 +281,9 @@ const MAP_CONNS_DEF = [
   [[0],[0]],
 ];
 
+// 雑魚ノードに出現する敵のプール（ランダム割り当て）
+const NORMAL_ENEMY_POOL = ['savannah_lion', 'frenzied_goblin'];
+
 let mapNodes = [];
 
 function buildMapNodes() {
@@ -291,10 +294,12 @@ function buildMapNodes() {
   mapNodes = MAP_ROWS_DEF.map((row, ri) => {
     const y = H - mbottom - ri * (usableH / (rc - 1));
     const xs = xsByCount[row.length];
-    return row.map((type, ci) => ({
-      x:xs[ci], y, type, row:ri, col:ci,
-      available:false, visited:false, current:false,
-    }));
+    return row.map((type, ci) => {
+      const enemyKey = type === 'normal'
+        ? NORMAL_ENEMY_POOL[Math.floor(Math.random() * NORMAL_ENEMY_POOL.length)]
+        : NODE_TO_ENEMY[type];
+      return { x:xs[ci], y, type, row:ri, col:ci, enemyKey, available:false, visited:false, current:false };
+    });
   });
 }
 
@@ -363,7 +368,8 @@ function renderMapSVG() {
     }));
 
     const icon = svgEl('text', { 'text-anchor':'middle', 'dominant-baseline':'middle', y:-3, 'font-size':node.type==='boss'?20:14, opacity:op });
-    icon.textContent = t.icon; g.appendChild(icon);
+    icon.textContent = (node.enemyKey && ENEMIES[node.enemyKey]?.icon) || t.icon;
+    g.appendChild(icon);
 
     const lbl = svgEl('text', { 'text-anchor':'middle', y:node.type==='boss'?19:17, 'font-size':8, fill:node.available?'#9999bb':'#333355', opacity:op });
     lbl.textContent = t.label; g.appendChild(lbl);
@@ -385,7 +391,7 @@ function pickMapNode(node) {
   G.mapPos = { row:node.row, col:node.col };
 
   if (node.type === 'shop' || node.type === 'relic') goto('shop', { trigger:node.type });
-  else goto('battle', { nodeType:node.type });
+  else goto('battle', { nodeType:node.type, enemyKey:node.enemyKey });
 }
 
 // =====================
@@ -395,7 +401,7 @@ let B = {};
 const B_STATES = ['normal', 'removed', 'blink'];
 
 function initBattle(data = {}) {
-  const enemyKey = NODE_TO_ENEMY[data.nodeType] || 'savannah_lion';
+  const enemyKey = data.enemyKey || NODE_TO_ENEMY[data.nodeType] || 'savannah_lion';
   const enemy    = ENEMIES[enemyKey];
 
   B = {
@@ -420,11 +426,11 @@ function initBattle(data = {}) {
 
 // 敵スクリプトが呼び出すヘルパー
 function bSummon(count, opts = {}) {
-  const { power=2, toughness=1, icon='🦁', label='', isSliver=false, isArarabo=false } = opts;
+  const { power=2, toughness=1, icon='🦁', label='', haste=false, isSliver=false, isArarabo=false } = opts;
   for (let i = 0; i < count; i++) {
     B.creatures.push({
       id: B.nextId++, dead: false,
-      summonTurn: B.turn, canAttack: false, state: 'normal',
+      summonTurn: B.turn, canAttack: haste, state: 'normal',
       power, toughness, icon, label, isSliver, isArarabo,
     });
   }
@@ -525,11 +531,17 @@ function bMainAction() {
   // 敵スクリプト実行
   const countBefore = B.creatures.filter(c => !c.dead).length;
   B.enemy.onTurn(B.turn, {
-    turn:      B.turn,
-    creatures: B.creatures,
-    summon:    (count, opts) => bSummon(count, opts),
-    log:       (msg, type)  => bLog(msg, type),
+    turn:         B.turn,
+    creatures:    B.creatures,
+    summon:       (count, opts) => bSummon(count, opts),
+    log:          (msg, type)  => bLog(msg, type),
+    damagePlayer: (amount) => {
+      G.playerHP = Math.max(0, G.playerHP - amount);
+      bRenderHP();
+      if (G.playerHP <= 0) bLose();
+    },
   });
+  if (B.gameOver) return;
   const didSummon = B.creatures.filter(c => !c.dead).length > countBefore;
   if (didSummon) { bSetPhase('enemy', 'summon'); bRenderField(); }
 
@@ -565,7 +577,8 @@ function bResolve() {
   document.getElementById('b-main-btn').style.display    = '';
   document.getElementById('b-resolve-btn').style.display = 'none';
   bRenderHP(); bRenderField(); bForecast();
-  if (G.playerHP <= 0) bLose();
+  if (G.playerHP <= 0) { bLose(); return; }
+  if (B.enemy.postCombat) B.enemy.postCombat(B.turn, { log: bLog });
 }
 
 function bWin() {
