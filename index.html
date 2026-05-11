@@ -30,6 +30,7 @@
     .wrap{max-width:640px;margin:0 auto;}
 
     /* ---- マップ ---- */
+    #map-scroll{overflow-y:auto;max-height:calc(100vh - 130px);-webkit-overflow-scrolling:touch;}
     #map-svg{width:100%;max-width:420px;display:block;margin:0 auto;}
     .node-glow{animation:pulse .9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center;}
     @keyframes pulse{from{opacity:.1;transform:scale(.82);}to{opacity:.45;transform:scale(1.22);}}
@@ -149,7 +150,9 @@
 <!-- ===== マップ ===== -->
 <div id="s-map" class="screen">
   <div class="wrap">
-    <svg id="map-svg" viewBox="0 0 340 480" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="map-scroll">
+      <svg id="map-svg" width="340" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
     <div id="map-hint">最初の戦いを選んでください</div>
   </div>
 </div>
@@ -212,6 +215,16 @@
   </div>
 </div>
 
+<!-- ===== 焚き火 ===== -->
+<div id="s-bonfire" class="screen" hidden>
+  <div class="wrap">
+    <div class="screen-title">🔥 焚き火</div>
+    <div class="screen-sub">一息つく。どうする？</div>
+    <button class="action-btn gold" onclick="bonfireHeal()">❤️ 休息 — 最大HPの30%回復</button>
+    <button class="action-btn" onclick="bonfireShop()">🏪 鍛冶 — ショップ（近日実装）</button>
+  </div>
+</div>
+
 <!-- ===== ゲームオーバー ===== -->
 <div id="s-gameover" class="screen" hidden>
   <div class="wrap">
@@ -244,7 +257,7 @@ function goto(name, data = {}) {
   document.querySelectorAll('.screen').forEach(el => el.hidden = true);
   document.getElementById('s-' + name).hidden = false;
   updateHeader();
-  ({ map:initMap, battle:initBattle, shop:initShop, gameover:initGameover }[name] || (() => {}))(data);
+  ({ map:initMap, battle:initBattle, shop:initShop, bonfire:initBonfire, gameover:initGameover }[name] || (() => {}))(data);
 }
 
 function updateHeader() {
@@ -256,74 +269,168 @@ function updateHeader() {
 }
 
 // =====================
-// MAP
+// MAP  7列×15行 + ボス行（STS方式）
 // =====================
 const MAP_TYPES = {
-  normal:{ label:'雑魚戦',   icon:'⚔️', fill:'#0d2535', stroke:'#3a8fbf', glow:'#5ab5e8' },
-  shop:  { label:'ショップ', icon:'🏪', fill:'#251c08', stroke:'#c9922a', glow:'#f5c55a' },
-  elite: { label:'エリート', icon:'💀', fill:'#1e0a30', stroke:'#8844cc', glow:'#bb77ff' },
-  relic: { label:'レリック', icon:'💎', fill:'#082515', stroke:'#2aaa77', glow:'#44ddaa' },
-  boss:  { label:'ボス',     icon:'🔥', fill:'#300808', stroke:'#cc2222', glow:'#ff5555' },
+  normal:  { label:'雑魚戦',   icon:'⚔️',  fill:'#0d2535', stroke:'#3a8fbf', glow:'#5ab5e8' },
+  elite:   { label:'エリート', icon:'💀',  fill:'#1e0a30', stroke:'#8844cc', glow:'#bb77ff' },
+  bonfire: { label:'焚き火',   icon:'🔥',  fill:'#251208', stroke:'#cc5511', glow:'#ff7733' },
+  treasure:{ label:'宝箱',     icon:'💎',  fill:'#082515', stroke:'#2aaa77', glow:'#44ddaa' },
+  mystery: { label:'？',       icon:'❓',  fill:'#0f0f20', stroke:'#556688', glow:'#7799cc' },
+  boss:    { label:'ボス',     icon:'👑',  fill:'#300808', stroke:'#cc2222', glow:'#ff5555' },
 };
-const MAP_ROWS_DEF = [
-  ['normal','normal','normal'],
-  ['normal','shop','normal'],
-  ['elite','elite'],
-  ['normal','relic','normal'],
-  ['normal','shop'],
-  ['boss'],
-];
-const MAP_CONNS_DEF = [
-  [[0,1],[1,2],[1,2]],
-  [[0],[0,1],[1]],
-  [[0,1],[1,2]],
-  [[0],[0,1],[1]],
-  [[0],[0]],
-];
+const MAP_ROWS  = 15;   // 行0〜14 = 1〜15階、行15 = ボス(16階)
+const MAP_COLS  = 7;
+const MAP_PATHS = 6;
 
-// 雑魚ノードに出現する敵のプール（行による難易度分け）
-// rows 0-1 = 弱ランク（最初の3回）、rows 3-4 = 強ランク（4回目以降）
+// 敵プール
 const NORMAL_POOL_WEAK   = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm'];
 const NORMAL_POOL_STRONG = ['call_of_herd', 'archer_rat', 'avian_changeling'];
 const ELITE_POOL         = ['muscle_sliver', 'angel_vitality'];
 
-let mapNodes = [];
+let mapGenData = null;  // { nodeMap, edges, svgH }
 
-function buildMapNodes() {
-  const W=340, H=480, mbottom=35;
-  const usableH = H - 45 - mbottom;
-  const rc = MAP_ROWS_DEF.length;
-  const xsByCount = { 1:[170], 2:[88,252], 3:[48,170,292] };
-  mapNodes = MAP_ROWS_DEF.map((row, ri) => {
-    const y = H - mbottom - ri * (usableH / (rc - 1));
-    const xs = xsByCount[row.length];
-    return row.map((type, ci) => {
-      let enemyKey;
-      if (type === 'normal') {
-        const pool = ri <= 1 ? NORMAL_POOL_WEAK : NORMAL_POOL_STRONG;
-        enemyKey = pool[Math.floor(Math.random() * pool.length)];
-      } else if (type === 'elite') {
-        enemyKey = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
-      } else {
-        enemyKey = NODE_TO_ENEMY[type];
+// ---- パス生成 ----
+function generateMapData() {
+  // 1. 6本パスを行0→行14まで生成
+  const starts = Array.from({ length: MAP_PATHS }, () =>
+    Math.floor(Math.random() * MAP_COLS)
+  ).sort((a, b) => a - b);
+
+  const paths = starts.map(c => [c]);
+  for (let r = 0; r < MAP_ROWS - 1; r++) {
+    const cur  = paths.map(p => p[p.length - 1]);
+    const next = cur.map(col => {
+      const opts = [];
+      if (col > 0) opts.push(col - 1);
+      opts.push(col);
+      if (col < MAP_COLS - 1) opts.push(col + 1);
+      return opts[Math.floor(Math.random() * opts.length)];
+    });
+    // アンチクロス：相対順序を保持
+    for (let i = 0; i < next.length - 1; i++) {
+      if (next[i] > next[i + 1]) next[i] = next[i + 1];
+    }
+    paths.forEach((p, i) => p.push(next[i]));
+  }
+
+  // 2. ノードセット＆エッジ
+  const nodeSet   = new Set();
+  const edgesDown = new Map();
+  const edgesUp   = new Map();
+
+  paths.forEach(path => {
+    for (let r = 0; r < path.length; r++) {
+      const c = path[r];
+      nodeSet.add(`${r},${c}`);
+      if (r < path.length - 1) {
+        const from = `${r},${c}`, to = `${r+1},${path[r+1]}`;
+        if (!edgesDown.has(from)) edgesDown.set(from, new Set());
+        edgesDown.get(from).add(to);
+        if (!edgesUp.has(to)) edgesUp.set(to, new Set());
+        edgesUp.get(to).add(from);
       }
-      return { x:xs[ci], y, type, row:ri, col:ci, enemyKey, available:false, visited:false, current:false };
+    }
+  });
+
+  // ボスノード（行15 中央）：行14の全ノードから接続
+  const bossKey = `${MAP_ROWS},3`;
+  nodeSet.add(bossKey);
+  nodeSet.forEach(key => {
+    if (parseInt(key) === MAP_ROWS - 1) {
+      if (!edgesDown.has(key)) edgesDown.set(key, new Set());
+      edgesDown.get(key).add(bossKey);
+      if (!edgesUp.has(bossKey)) edgesUp.set(bossKey, new Set());
+      edgesUp.get(bossKey).add(key);
+    }
+  });
+
+  // 3. タイプ割り当て
+  // 固定行：0=雑魚 8=宝箱 14=焚き火 15=ボス
+  const FIXED = { 0:'normal', 8:'treasure', 14:'bonfire', 15:'boss' };
+
+  function pickType(r, parentTypes) {
+    const hasEliteParent   = parentTypes.some(t => t === 'elite');
+    const hasBonfireParent = parentTypes.some(t => t === 'bonfire');
+    const w = {
+      normal:  53,
+      elite:   (r < 6 || hasBonfireParent) ? 0 : 8,
+      bonfire: (hasEliteParent || hasBonfireParent) ? 0 : 27,
+      mystery: 12,
+    };
+    const total = Object.values(w).reduce((a, b) => a + b, 0);
+    let rand = Math.random() * total;
+    for (const [type, wt] of Object.entries(w)) {
+      rand -= wt;
+      if (rand <= 0) return type;
+    }
+    return 'normal';
+  }
+
+  const typeMap = new Map();
+  for (let r = 0; r <= MAP_ROWS; r++) {
+    [...nodeSet].filter(k => parseInt(k) === r).forEach(key => {
+      if (FIXED[r] !== undefined) {
+        typeMap.set(key, FIXED[r]);
+      } else {
+        const parentTypes = [...(edgesUp.get(key) || [])].map(pk => typeMap.get(pk)).filter(Boolean);
+        typeMap.set(key, pickType(r, parentTypes));
+      }
+    });
+  }
+
+  // 4. SVG座標 & ノードオブジェクト
+  const ROW_H  = 44, BOT_PAD = 22;
+  const SVG_H  = (MAP_ROWS + 1) * ROW_H + BOT_PAD + 30;
+  const colX   = c => Math.round(340 / (MAP_COLS + 1) * (c + 1));
+  const rowY   = r => SVG_H - BOT_PAD - r * ROW_H;
+
+  const nodeMap = new Map();
+  nodeSet.forEach(key => {
+    const [r, c] = key.split(',').map(Number);
+    const type = typeMap.get(key) || 'normal';
+    let enemyKey = null;
+    if (type === 'normal' || type === 'mystery') {
+      const pool = r < 3 ? NORMAL_POOL_WEAK : NORMAL_POOL_STRONG;
+      enemyKey = pool[Math.floor(Math.random() * pool.length)];
+    } else if (type === 'elite') {
+      enemyKey = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
+    } else if (type === 'boss') {
+      enemyKey = NODE_TO_ENEMY.boss;
+    }
+    nodeMap.set(key, {
+      key, row: r, col: c, type, enemyKey,
+      x: colX(c), y: rowY(r),
+      available: false, visited: false, current: false,
     });
   });
+
+  const edges = new Map();
+  edgesDown.forEach((s, from) => edges.set(from, [...s]));
+
+  return { nodeMap, edges, svgH: SVG_H };
 }
 
+function buildMapNodes() { mapGenData = generateMapData(); }
+
 function getAvailableMapNodes() {
-  if (!G.mapPos) return mapNodes[0];
-  const { row, col } = G.mapPos;
-  if (row >= MAP_CONNS_DEF.length) return [];
-  return (MAP_CONNS_DEF[row][col] || []).map(ti => mapNodes[row + 1][ti]);
+  if (!mapGenData) return [];
+  const { nodeMap, edges } = mapGenData;
+  if (!G.mapPos) return [...nodeMap.values()].filter(n => n.row === 0);
+  const key = `${G.mapPos.row},${G.mapPos.col}`;
+  return (edges.get(key) || []).map(k => nodeMap.get(k)).filter(Boolean);
 }
 
 function initMap() {
-  if (!mapNodes.length) buildMapNodes();
-  mapNodes.forEach(row => row.forEach(n => n.available = false));
+  if (!mapGenData) buildMapNodes();
+  [...mapGenData.nodeMap.values()].forEach(n => n.available = false);
   getAvailableMapNodes().forEach(n => n.available = true);
   renderMapSVG();
+  // 初期スクロール：行0（1階）が見えるよう一番下へ
+  requestAnimationFrame(() => {
+    const s = document.getElementById('map-scroll');
+    if (s) s.scrollTop = s.scrollHeight;
+  });
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -334,73 +441,111 @@ function svgEl(tag, attrs = {}) {
 }
 
 function renderMapSVG() {
+  const { nodeMap, edges, svgH } = mapGenData;
   const svg = document.getElementById('map-svg');
+  svg.setAttribute('height', svgH);
   svg.innerHTML = '';
-  svg.appendChild(svgEl('rect', { width:340, height:480, fill:'#060610' }));
 
-  const t1 = svgEl('text', { 'text-anchor':'middle', x:170, y:20, 'font-size':14, fill:'#d4a853', 'letter-spacing':4, 'font-weight':'bold' });
+  svg.appendChild(svgEl('rect', { width:340, height:svgH, fill:'#060610' }));
+  const t1 = svgEl('text', { 'text-anchor':'middle', x:170, y:20, 'font-size':13, fill:'#d4a853', 'letter-spacing':3, 'font-weight':'bold' });
   t1.textContent = 'BLAZE'; svg.appendChild(t1);
-  const t2 = svgEl('text', { 'text-anchor':'middle', x:170, y:34, 'font-size':9, fill:'#444466' });
-  t2.textContent = 'ステージ 1 — サバンナの試練'; svg.appendChild(t2);
 
-  MAP_CONNS_DEF.forEach((rowConns, ri) => {
-    rowConns.forEach((targets, ci) => {
-      targets.forEach(ti => {
-        const f = mapNodes[ri][ci], to = mapNodes[ri + 1][ti];
-        const fd = f.visited || f.current, td = to.visited || to.current;
-        let stroke = '#1a2040', sw = 1, op = 0.4;
-        if (fd && td) { stroke = MAP_TYPES[f.type].glow; sw = 2; op = 0.7; }
-        else if (fd)  { stroke = '#4455aa'; sw = 1.5; op = 0.45; }
-        svg.appendChild(svgEl('line', { x1:f.x, y1:f.y, x2:to.x, y2:to.y, stroke, 'stroke-width':sw, opacity:op }));
-      });
+  // 接続線
+  edges.forEach((targets, fromKey) => {
+    const from = nodeMap.get(fromKey);
+    if (!from) return;
+    targets.forEach(toKey => {
+      const to = nodeMap.get(toKey);
+      if (!to) return;
+      const fd = from.visited || from.current, td = to.visited || to.current;
+      let stroke = '#1a2040', sw = 1, op = 0.35;
+      if (fd && td) { stroke = MAP_TYPES[from.type].glow; sw = 2; op = 0.7; }
+      else if (fd)  { stroke = '#4455aa'; sw = 1.5; op = 0.45; }
+      svg.appendChild(svgEl('line', { x1:from.x, y1:from.y, x2:to.x, y2:to.y, stroke, 'stroke-width':sw, opacity:op }));
     });
   });
 
-  mapNodes.forEach(row => row.forEach(node => {
-    const t = MAP_TYPES[node.type];
-    const R = node.type === 'boss' ? 28 : 20;
-    const g = svgEl('g', { transform:`translate(${node.x},${node.y})` });
+  // ノード
+  [...nodeMap.values()].forEach(node => {
+    const mt = MAP_TYPES[node.type];
+    const R  = node.type === 'boss' ? 20 : 14;
+    const g  = svgEl('g', { transform:`translate(${node.x},${node.y})` });
 
     if (node.available) {
-      const glow = svgEl('circle', { r:R+10, fill:t.glow, opacity:0.18 });
-      glow.classList.add('node-glow');
-      g.appendChild(glow);
+      const gw = svgEl('circle', { r:R+9, fill:mt.glow, opacity:0.18 });
+      gw.classList.add('node-glow');
+      g.appendChild(gw);
     }
 
     const op = (node.visited && !node.current) ? 0.4 : 1;
     g.appendChild(svgEl('circle', {
       r: R,
-      fill:   node.current ? t.stroke : t.fill,
-      stroke: node.current ? '#ffffff' : node.available ? t.stroke : node.visited ? t.stroke : '#252550',
+      fill:   node.current ? mt.stroke : mt.fill,
+      stroke: node.current ? '#ffffff' : node.available ? mt.stroke : node.visited ? mt.stroke : '#252550',
       'stroke-width': node.current ? 2.5 : node.available ? 2 : 1.2,
       opacity: op,
     }));
 
-    const icon = svgEl('text', { 'text-anchor':'middle', 'dominant-baseline':'middle', y:-3, 'font-size':node.type==='boss'?20:14, opacity:op });
-    icon.textContent = (node.enemyKey && ENEMIES[node.enemyKey]?.icon) || t.icon;
-    g.appendChild(icon);
-
-    const lbl = svgEl('text', { 'text-anchor':'middle', y:node.type==='boss'?19:17, 'font-size':8, fill:node.available?'#9999bb':'#333355', opacity:op });
-    lbl.textContent = t.label; g.appendChild(lbl);
+    const ico = svgEl('text', { 'text-anchor':'middle', 'dominant-baseline':'middle',
+      y:-1, 'font-size':node.type==='boss'?14:9, opacity:op });
+    ico.textContent = mt.icon;
+    g.appendChild(ico);
 
     if (node.available) {
       g.style.cursor = 'pointer';
       g.addEventListener('click', () => pickMapNode(node));
     }
     svg.appendChild(g);
-  }));
+  });
+
+  // 階層ラベル（右端）
+  const shownRows = new Set();
+  [...nodeMap.values()].sort((a, b) => a.row - b.row).forEach(({ row, y }) => {
+    if (shownRows.has(row)) return;
+    shownRows.add(row);
+    const lbl = svgEl('text', { 'text-anchor':'end', x:336, y:y+4, 'font-size':8, fill:'#2a2a50' });
+    lbl.textContent = row === MAP_ROWS ? 'BOSS' : `${row+1}F`;
+    svg.appendChild(lbl);
+  });
 }
 
 function pickMapNode(node) {
   if (G.mapPos) {
-    const prev = mapNodes[G.mapPos.row][G.mapPos.col];
-    prev.current = false; prev.visited = true;
+    const prev = mapGenData.nodeMap.get(`${G.mapPos.row},${G.mapPos.col}`);
+    if (prev) { prev.current = false; prev.visited = true; }
   }
   node.current = true;
-  G.mapPos = { row:node.row, col:node.col };
+  G.mapPos = { row: node.row, col: node.col };
 
-  if (node.type === 'shop' || node.type === 'relic') goto('shop', { trigger:node.type });
-  else goto('battle', { nodeType:node.type, enemyKey:node.enemyKey });
+  switch (node.type) {
+    case 'bonfire':
+      goto('bonfire');
+      break;
+    case 'treasure':
+      // 仮：メッセージ表示のみ（詳細実装予定）
+      [...mapGenData.nodeMap.values()].forEach(n => n.available = false);
+      getAvailableMapNodes().forEach(n => n.available = true);
+      renderMapSVG();
+      document.getElementById('map-hint').textContent = '💎 宝箱！ レリックを入手した。次の行き先を選んでください';
+      break;
+    case 'mystery':
+    default:
+      goto('battle', { nodeType: node.type, enemyKey: node.enemyKey });
+  }
+}
+
+// ---- 焚き火 ----
+function initBonfire() {}
+function bonfireHeal() {
+  const heal = Math.floor(G.playerMaxHP * 0.3);
+  G.playerHP  = Math.min(G.playerMaxHP, G.playerHP + heal);
+  updateHeader();
+  document.getElementById('map-hint').textContent = `🔥 焚き火で休んだ。+${heal}HP（現在 ${G.playerHP}/${G.playerMaxHP}）`;
+  goto('map');
+}
+function bonfireShop() {
+  document.getElementById('map-hint').textContent = '🏪 鍛冶場は近日実装予定。次の行き先を選んでください';
+  goto('map');
 }
 
 // =====================
@@ -651,7 +796,7 @@ function initGameover() {}
 function restartGame() {
   G.playerHP = 40; G.playerMaxHP = 40;
   G.relics   = [{ id:'heal5', name:'毎戦後+5回復', icon:'🌿', desc:'各戦闘終了後、5点回復する' }];
-  G.mapPos   = null; mapNodes = [];
+  G.mapPos   = null; mapGenData = null;
   goto('map');
 }
 
