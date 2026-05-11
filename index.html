@@ -281,8 +281,10 @@ const MAP_CONNS_DEF = [
   [[0],[0]],
 ];
 
-// 雑魚ノードに出現する敵のプール（ランダム割り当て）
-const NORMAL_ENEMY_POOL = ['savannah_lion', 'frenzied_goblin'];
+// 雑魚ノードに出現する敵のプール（行による難易度分け）
+// rows 0-1 = 弱ランク（最初の3回）、rows 3-4 = 強ランク（4回目以降）
+const NORMAL_POOL_WEAK   = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm'];
+const NORMAL_POOL_STRONG = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm']; // 強い敵は後で追加
 
 let mapNodes = [];
 
@@ -295,9 +297,13 @@ function buildMapNodes() {
     const y = H - mbottom - ri * (usableH / (rc - 1));
     const xs = xsByCount[row.length];
     return row.map((type, ci) => {
-      const enemyKey = type === 'normal'
-        ? NORMAL_ENEMY_POOL[Math.floor(Math.random() * NORMAL_ENEMY_POOL.length)]
-        : NODE_TO_ENEMY[type];
+      let enemyKey;
+      if (type === 'normal') {
+        const pool = ri <= 1 ? NORMAL_POOL_WEAK : NORMAL_POOL_STRONG;
+        enemyKey = pool[Math.floor(Math.random() * pool.length)];
+      } else {
+        enemyKey = NODE_TO_ENEMY[type];
+      }
       return { x:xs[ci], y, type, row:ri, col:ci, enemyKey, available:false, visited:false, current:false };
     });
   });

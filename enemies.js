@@ -82,6 +82,34 @@ const ENEMIES = {
     },
   },
 
+  // ---- 雑魚（弱）：甲鱗のワーム ----
+  // 5ターン目以降、毎ターン7/6を召喚。召喚酔いあり。
+  scaled_wurm: {
+    name:       '甲鱗のワーム',
+    stageLabel: '雑魚戦',
+    icon:       '🪱',
+    hp:         12,
+
+    onTurn(turn, b) {
+      if (turn < 5) return;
+      b.summon(1, { power:7, toughness:6, icon:'🪱', label:'ワーム' });
+      b.log('甲鱗のワーム(7/6)召喚（召喚酔い）', 'enemy');
+    },
+
+    forecast(turn, creatures) {
+      const next = turn + 1;
+      const parts = [];
+      if (next >= 5) {
+        parts.push('ワーム(7/6)召喚');
+      } else {
+        parts.push(`あと${5 - next}ターンでワーム召喚開始`);
+      }
+      const atk = creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+      if (atk.length) parts.push(`${atk.length}体がアタック`);
+      return parts.join(' / ');
+    },
+  },
+
   // ---- エリート：筋肉スリヴァー ----
   muscle_sliver: {
     name:       '筋肉スリヴァー',
