@@ -285,6 +285,7 @@ const MAP_CONNS_DEF = [
 // rows 0-1 = 弱ランク（最初の3回）、rows 3-4 = 強ランク（4回目以降）
 const NORMAL_POOL_WEAK   = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm'];
 const NORMAL_POOL_STRONG = ['call_of_herd', 'archer_rat', 'avian_changeling'];
+const ELITE_POOL         = ['muscle_sliver', 'angel_vitality'];
 
 let mapNodes = [];
 
@@ -301,6 +302,8 @@ function buildMapNodes() {
       if (type === 'normal') {
         const pool = ri <= 1 ? NORMAL_POOL_WEAK : NORMAL_POOL_STRONG;
         enemyKey = pool[Math.floor(Math.random() * pool.length)];
+      } else if (type === 'elite') {
+        enemyKey = ELITE_POOL[Math.floor(Math.random() * ELITE_POOL.length)];
       } else {
         enemyKey = NODE_TO_ENEMY[type];
       }
@@ -432,12 +435,12 @@ function initBattle(data = {}) {
 
 // 敵スクリプトが呼び出すヘルパー
 function bSummon(count, opts = {}) {
-  const { power=2, toughness=1, icon='🦁', label='', haste=false, isSliver=false, isArarabo=false, isChangeling=false, deathtouch=false } = opts;
+  const { power=2, toughness=1, icon='🦁', label='', haste=false, isSliver=false, isArarabo=false, isChangeling=false, deathtouch=false, isAngel=false } = opts;
   for (let i = 0; i < count; i++) {
     B.creatures.push({
       id: B.nextId++, dead: false,
       summonTurn: B.turn, canAttack: haste, state: 'normal',
-      power, toughness, icon, label, isSliver, isArarabo, isChangeling, deathtouch,
+      power, toughness, icon, label, isSliver, isArarabo, isChangeling, deathtouch, isAngel,
     });
   }
 }
@@ -464,7 +467,7 @@ function bSetPhase(who, ph) {
 
 function bRenderHP() {
   document.getElementById('b-ehp').textContent = Math.max(0, B.enemyHP);
-  const ep = Math.max(0, B.enemyHP / B.enemyMaxHP * 100);
+  const ep = Math.min(100, Math.max(0, B.enemyHP / B.enemyMaxHP * 100));
   const eb = document.getElementById('b-ebar');
   eb.style.width = ep + '%'; eb.className = 'hp-fill enemy' + (ep < 30 ? ' low' : '');
 
@@ -546,12 +549,18 @@ function bMainAction() {
       bRenderHP();
       if (G.playerHP <= 0) bLose();
     },
+    healEnemy: (amount) => {
+      B.enemyHP += amount; // 上限なし（MTGではライフ上限なし）
+      bRenderHP();
+      bLog(`💚 ${B.enemy.name} ${amount}点回復（${B.enemyHP}）`, 'enemy');
+    },
+    getEnemyHP: () => B.enemyHP,
   });
   if (B.gameOver) return;
   const didSummon = B.creatures.filter(c => !c.dead).length > countBefore;
   if (didSummon) { bSetPhase('enemy', 'summon'); bRenderField(); }
 
-  const attackers = B.creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+  const attackers = B.creatures.filter(c => !c.dead && c.canAttack && !c.skipAttack && (c.state||'normal') === 'normal');
   if (!attackers.length) { bSetPhase('my', 'main'); bRenderField(); bForecast(); return; }
 
   setTimeout(() => {
@@ -565,7 +574,7 @@ function bMainAction() {
 
 function bResolve() {
   if (B.gameOver) return;
-  const attackers  = B.creatures.filter(c => !c.dead && c.canAttack);
+  const attackers  = B.creatures.filter(c => !c.dead && c.canAttack && !c.skipAttack);
   const removed    = attackers.filter(c => c.state === 'removed');
   const unblocked  = attackers.filter(c => (c.state||'normal') === 'normal');
 

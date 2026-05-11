@@ -205,6 +205,62 @@ const ENEMIES = {
     },
   },
 
+  // ---- エリート：生命力の天使 ----
+  // 3ターン目から天使とコアラヒツジを交互に召喚。
+  // コアラヒツジETB: 天使1体につき+1の回復（天使の置換効果）。
+  // 天使はHP25超えで4/4かつアタック解放。HP25以下では2/2で待機。
+  angel_vitality: {
+    name:       '生命力の天使',
+    stageLabel: 'エリート戦',
+    icon:       '😇',
+    hp:         20,
+
+    onTurn(turn, b) {
+      const phase = turn - 3;
+      if (phase >= 0) {
+        if (phase % 2 === 0) {
+          b.summon(1, { power:2, toughness:2, icon:'😇', label:'生命力の天使(飛行)', isAngel:true });
+          b.log('😇 生命力の天使(2/2飛行)召喚（召喚酔い）', 'enemy');
+        } else {
+          b.summon(1, { power:3, toughness:2, icon:'🐨', label:'コアラヒツジ' });
+          const aliveAngels = b.creatures.filter(c => !c.dead && c.isAngel).length;
+          b.healEnemy(3 + aliveAngels); // 天使の置換効果：回復量+1/体
+        }
+      }
+
+      // 天使のステータスを現在のHP次第で更新
+      const hp = b.getEnemyHP();
+      const buffed = hp >= 25;
+      const canAtk = hp > 25;
+      b.creatures.forEach(c => {
+        if (c.isAngel && !c.dead) {
+          c.power      = buffed ? 4 : 2;
+          c.toughness  = buffed ? 4 : 2;
+          c.skipAttack = !canAtk;
+          c.label      = `生命力の天使(${buffed ? '4/4' : '2/2'}飛行${canAtk ? '' : '・待機'})`;
+        }
+      });
+      if (buffed) b.log(`😇 敵HP ${hp}点 → 天使${buffed ? '4/4' : '2/2'}${canAtk ? '・アタック解放！' : '（HP25で待機）'}`, 'enemy');
+    },
+
+    forecast(turn, creatures) {
+      const next = turn + 1;
+      const parts = [];
+      const phase = next - 3;
+      if (phase >= 0) {
+        if (phase % 2 === 0) {
+          parts.push('😇 天使召喚（飛行）');
+        } else {
+          const aliveAngels = creatures.filter(c => !c.dead && c.isAngel).length;
+          parts.push(`🐨 コアラヒツジ召喚 + ${3 + aliveAngels}点回復`);
+        }
+      }
+      const atk = creatures.filter(c => !c.dead && c.canAttack && !c.skipAttack && (c.state||'normal') === 'normal');
+      if (atk.length) parts.push(`${atk.length}体がアタック`);
+      return parts.join(' / ') || '待機';
+    },
+  },
+
   // ---- エリート：筋肉スリヴァー ----
   muscle_sliver: {
     name:       '筋肉スリヴァー',
