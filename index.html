@@ -353,8 +353,8 @@ function generateMapData() {
     const hasEliteParent   = parentTypes.some(t => t === 'elite');
     const hasBonfireParent = parentTypes.some(t => t === 'bonfire');
     const w = {
-      normal:  53,
-      elite:   (r < 6 || hasBonfireParent) ? 0 : 8,
+      normal:  45,
+      elite:   (r < 5 || hasBonfireParent) ? 0 : 16,
       bonfire: (hasEliteParent || hasBonfireParent) ? 0 : 27,
       mystery: 12,
     };
