@@ -284,7 +284,7 @@ const MAP_CONNS_DEF = [
 // 雑魚ノードに出現する敵のプール（行による難易度分け）
 // rows 0-1 = 弱ランク（最初の3回）、rows 3-4 = 強ランク（4回目以降）
 const NORMAL_POOL_WEAK   = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm'];
-const NORMAL_POOL_STRONG = ['savannah_lion', 'frenzied_goblin', 'scaled_wurm']; // 強い敵は後で追加
+const NORMAL_POOL_STRONG = ['call_of_herd', 'archer_rat', 'avian_changeling'];
 
 let mapNodes = [];
 
@@ -432,12 +432,12 @@ function initBattle(data = {}) {
 
 // 敵スクリプトが呼び出すヘルパー
 function bSummon(count, opts = {}) {
-  const { power=2, toughness=1, icon='🦁', label='', haste=false, isSliver=false, isArarabo=false } = opts;
+  const { power=2, toughness=1, icon='🦁', label='', haste=false, isSliver=false, isArarabo=false, isChangeling=false, deathtouch=false } = opts;
   for (let i = 0; i < count; i++) {
     B.creatures.push({
       id: B.nextId++, dead: false,
       summonTurn: B.turn, canAttack: haste, state: 'normal',
-      power, toughness, icon, label, isSliver, isArarabo,
+      power, toughness, icon, label, isSliver, isArarabo, isChangeling, deathtouch,
     });
   }
 }

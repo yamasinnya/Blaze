@@ -110,6 +110,101 @@ const ENEMIES = {
     },
   },
 
+  // ---- 強い雑魚①：獣群の呼び声使い ----
+  // 3ターン目以降毎ターン3/3象召喚（予告なし）。3の倍数ターンに残酷な布告。
+  call_of_herd: {
+    name:       '獣群の呼び声使い',
+    stageLabel: '雑魚戦',
+    icon:       '🐘',
+    hp:         14,
+
+    onTurn(turn, b) {
+      if (turn >= 3) {
+        b.summon(1, { power:3, toughness:3, icon:'🐘', label:'象トークン' });
+        b.log('🌿 獣群の呼び声！ 象(3/3)召喚（召喚酔い）', 'enemy');
+      }
+      if (turn % 3 === 0) {
+        b.log('💀 残酷な布告！ あなたはクリーチャーを1体生け贄に捧げること！', 'enemy');
+      }
+    },
+
+    forecast(turn, creatures) {
+      const next = turn + 1;
+      const parts = [];
+      // 獣群の呼び声は予告なし
+      if (next % 3 === 0) parts.push('💀 生贄が必要だ');
+      const atk = creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+      if (atk.length) parts.push(`${atk.length}体がアタック`);
+      return parts.join(' / ') || '待機';
+    },
+  },
+
+  // ---- 強い雑魚②：射手と泥棒ネズミ ----
+  // 2ターン目以降、射手(2/1接死)と泥棒ネズミ(1/1)を交互に召喚。
+  // ネズミ出現時：プレイヤーは手札を1枚捨てる。
+  archer_rat: {
+    name:       '射手と泥棒ネズミ',
+    stageLabel: '雑魚戦',
+    icon:       '🏹',
+    hp:         13,
+
+    onTurn(turn, b) {
+      if (turn < 2) return;
+      if ((turn - 2) % 2 === 0) {
+        b.summon(1, { power:1, toughness:1, icon:'🐀', label:'泥棒ネズミ' });
+        b.log('🐀 泥棒ネズミ召喚！ あなたは手札からカードを1枚捨てること！', 'enemy');
+      } else {
+        b.summon(1, { power:2, toughness:1, icon:'🏹', label:'射手(接死)', deathtouch:true });
+        b.log('🏹 ソーンウィールドの射手(2/1)召喚！ 接死 — 接触したクリーチャーは死亡！', 'enemy');
+      }
+    },
+
+    forecast(turn, creatures) {
+      const next = turn + 1;
+      const parts = [];
+      if (next >= 2) {
+        if ((next - 2) % 2 === 0) parts.push('🐀 ネズミ召喚（手札1枚捨て）');
+        else parts.push('🏹 射手(2/1・接死)召喚');
+      }
+      const atk = creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+      if (atk.length) parts.push(`${atk.length}体がアタック`);
+      return parts.join(' / ') || '待機';
+    },
+  },
+
+  // ---- 強い雑魚③：鳥の変わり身使い ----
+  // 3ターン目以降毎ターン変わり身(2/2飛行)召喚。
+  // 4ターン目以降3ターンに一回、圧倒的な波（変わり身はクラーケン等でもあるため残る）。
+  avian_changeling: {
+    name:       '鳥の変わり身使い',
+    stageLabel: '雑魚戦',
+    icon:       '🦅',
+    hp:         15,
+
+    onTurn(turn, b) {
+      if (turn >= 3) {
+        b.summon(1, { power:2, toughness:2, icon:'🦅', label:'変わり身(飛行)', isChangeling:true });
+        b.log('🦅 鳥の変わり身(2/2飛行)召喚（召喚酔い）', 'enemy');
+      }
+      if (turn >= 4 && (turn - 4) % 3 === 0) {
+        const bounced = b.creatures.filter(c => !c.dead && !c.isChangeling);
+        bounced.forEach(c => { c.dead = true; });
+        b.log('🌊 圧倒的な波！ クラーケン等以外のクリーチャーがすべて手札に戻った！', 'enemy');
+        b.log('🌊 あなたのクリーチャーも（クラーケン等を除き）すべて手札に戻してください。変わり身は残る！', 'enemy');
+      }
+    },
+
+    forecast(turn, creatures) {
+      const next = turn + 1;
+      const parts = [];
+      if (next >= 3) parts.push('変わり身(2/2飛行)召喚');
+      if (next >= 4 && (next - 4) % 3 === 0) parts.push('🌊 波が来るぞ');
+      const atk = creatures.filter(c => !c.dead && c.canAttack && (c.state||'normal') === 'normal');
+      if (atk.length) parts.push(`${atk.length}体がアタック`);
+      return parts.join(' / ') || '待機';
+    },
+  },
+
   // ---- エリート：筋肉スリヴァー ----
   muscle_sliver: {
     name:       '筋肉スリヴァー',
