@@ -345,16 +345,27 @@ function generateMapData() {
     }
   });
 
-  // 3. タイプ割り当て
-  // 固定行：0=雑魚 8=宝箱 14=焚き火 15=ボス
+  // 3. タイプ割り当て（エリート3〜5体保証）
   const FIXED = { 0:'normal', 8:'treasure', 14:'bonfire', 15:'boss' };
 
-  function pickType(r, parentTypes) {
+  // エリートを先に配置：row>=5の非固定ノードからN体を優先確保
+  const eliteTarget = 3 + Math.floor(Math.random() * 3); // 3・4・5のいずれか
+  const eligibleForElite = [...nodeSet]
+    .filter(k => parseInt(k) >= 5 && FIXED[parseInt(k)] === undefined);
+  for (let i = eligibleForElite.length - 1; i > 0; i--) {  // Fisher-Yates shuffle
+    const j = Math.floor(Math.random() * (i + 1));
+    [eligibleForElite[i], eligibleForElite[j]] = [eligibleForElite[j], eligibleForElite[i]];
+  }
+  const preElites = new Set(
+    eligibleForElite.slice(0, Math.min(eliteTarget, eligibleForElite.length))
+  );
+
+  // エリート以外のノード用タイプ選択（エリート枠は使わない）
+  function pickTypeNoElite(r, parentTypes) {
     const hasEliteParent   = parentTypes.some(t => t === 'elite');
     const hasBonfireParent = parentTypes.some(t => t === 'bonfire');
     const w = {
       normal:  45,
-      elite:   (r < 5 || hasBonfireParent) ? 0 : 16,
       bonfire: (hasEliteParent || hasBonfireParent) ? 0 : 27,
       mystery: 12,
     };
@@ -372,9 +383,11 @@ function generateMapData() {
     [...nodeSet].filter(k => parseInt(k) === r).forEach(key => {
       if (FIXED[r] !== undefined) {
         typeMap.set(key, FIXED[r]);
+      } else if (preElites.has(key)) {
+        typeMap.set(key, 'elite');
       } else {
         const parentTypes = [...(edgesUp.get(key) || [])].map(pk => typeMap.get(pk)).filter(Boolean);
-        typeMap.set(key, pickType(r, parentTypes));
+        typeMap.set(key, pickTypeNoElite(r, parentTypes));
       }
     });
   }
