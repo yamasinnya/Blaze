@@ -129,6 +129,17 @@
     .relic-name{font-size:13px;font-weight:600;color:var(--gold);margin-bottom:4px;}
     .relic-desc{font-size:11px;color:var(--dim);line-height:1.6;}
 
+    /* ---- 遊び方 ---- */
+    .howto-head{font-size:13px;font-weight:600;color:var(--gold);margin-bottom:10px;}
+    .howto-row{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5;}
+    .howto-row:last-child{border-bottom:none;}
+    .howto-icon{min-width:30px;font-size:15px;text-align:center;}
+    .howto-body strong{font-size:12px;color:var(--text);}
+    .howto-sub{color:var(--dim);font-size:11px;margin-top:2px;line-height:1.5;}
+    .howto-rule{font-size:12px;color:var(--text);padding:6px 0;border-bottom:1px solid var(--border);line-height:1.5;}
+    .howto-rule:last-child{border-bottom:none;}
+    .howto-fixed{margin-top:10px;font-size:11px;color:var(--dim);background:var(--bg3);border-radius:6px;padding:8px 10px;line-height:1.9;}
+
     /* ---- ゲームオーバー ---- */
     #s-gameover .wrap{text-align:center;padding-top:80px;}
     #go-title{font-size:32px;font-weight:700;margin-bottom:8px;}
@@ -150,6 +161,9 @@
 <!-- ===== マップ ===== -->
 <div id="s-map" class="screen">
   <div class="wrap">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+      <button class="action-btn" onclick="goto('howto')" style="width:auto;padding:5px 14px;font-size:12px;margin-bottom:0;">❓ 遊び方</button>
+    </div>
     <div id="map-scroll">
       <svg id="map-svg" width="340" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
@@ -225,6 +239,49 @@
   </div>
 </div>
 
+<!-- ===== 遊び方 ===== -->
+<div id="s-howto" class="screen" hidden>
+  <div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="screen-title">遊び方</div>
+      <button class="action-btn" onclick="goto('map')" style="width:auto;padding:5px 14px;font-size:12px;margin-bottom:0;">← 戻る</button>
+    </div>
+
+    <div class="panel">
+      <div class="howto-head">🃏 デッキ構成（20枚）</div>
+      <div class="howto-rule"><strong>呪文 11枚</strong><br><span style="color:var(--dim)">パック15枚から土地・広告を除いた13枚のうち、任意の2枚をカット</span></div>
+      <div class="howto-rule"><strong>基本土地 5枚</strong>（各色1枚）<br><span style="color:var(--dim)">対戦間に自由に入れ替え可</span></div>
+      <div class="howto-rule"><strong>特殊土地 4枚</strong><br><span style="color:var(--dim)">最初に色を決め打ち。決めた色は無料、他の色は1点のライフを払えば出せる</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="howto-head">🗺 マップの見方</div>
+      <div class="howto-row"><div class="howto-icon">⚔️</div><div class="howto-body"><strong>雑魚戦</strong><div class="howto-sub">通常の戦闘。勝利でレリックとゴールドを獲得</div></div></div>
+      <div class="howto-row"><div class="howto-icon">💀</div><div class="howto-body"><strong>エリート戦</strong><div class="howto-sub">強敵。敵の種類は入るまで不明。勝利でカードをデッキに追加できる</div></div></div>
+      <div class="howto-row"><div class="howto-icon">🔥</div><div class="howto-body"><strong>焚き火</strong><div class="howto-sub">HP回復 か ショップ、どちらか選択</div></div></div>
+      <div class="howto-row"><div class="howto-icon">💎</div><div class="howto-body"><strong>宝箱</strong><div class="howto-sub">戦闘なし。レリック確定入手</div></div></div>
+      <div class="howto-row"><div class="howto-icon">❓</div><div class="howto-body"><strong>？マス</strong><div class="howto-sub">ランダムイベント</div></div></div>
+      <div class="howto-row"><div class="howto-icon">👑</div><div class="howto-body"><strong>ボス</strong><div class="howto-sub">最終決戦</div></div></div>
+      <div class="howto-fixed">固定：1階＝雑魚戦　9階＝宝箱　15階＝焚き火　16階＝ボス</div>
+    </div>
+
+    <div class="panel">
+      <div class="howto-head">⚔️ 戦闘ルール</div>
+      <div class="howto-rule">相手クリーチャーはブロックしない（こちらはブロック可）</div>
+      <div class="howto-rule">長期戦は不利。早期決着を狙うこと</div>
+    </div>
+
+    <div class="panel">
+      <div class="howto-head">✨ 強化要素</div>
+      <div class="howto-row"><div class="howto-icon">🌿</div><div class="howto-body"><strong>レリック</strong><div class="howto-sub">雑魚戦・宝箱で入手。永続効果でキャラを強化</div></div></div>
+      <div class="howto-row"><div class="howto-icon">🏪</div><div class="howto-body"><strong>ショップ</strong><div class="howto-sub">焚き火でHP回復の代わりに利用。シングルカードを購入してデッキ強化</div></div></div>
+      <div class="howto-row"><div class="howto-icon">📦</div><div class="howto-body"><strong>カード追加</strong><div class="howto-sub">エリート撃破でパック半分から好きなカードをデッキに追加</div></div></div>
+    </div>
+
+    <button class="action-btn gold" onclick="goto('map')" style="margin-top:4px;">← マップに戻る</button>
+  </div>
+</div>
+
 <!-- ===== ゲームオーバー ===== -->
 <div id="s-gameover" class="screen" hidden>
   <div class="wrap">
@@ -257,7 +314,7 @@ function goto(name, data = {}) {
   document.querySelectorAll('.screen').forEach(el => el.hidden = true);
   document.getElementById('s-' + name).hidden = false;
   updateHeader();
-  ({ map:initMap, battle:initBattle, shop:initShop, bonfire:initBonfire, gameover:initGameover }[name] || (() => {}))(data);
+  ({ map:initMap, battle:initBattle, shop:initShop, bonfire:initBonfire, howto:initHowto, gameover:initGameover }[name] || (() => {}))(data);
 }
 
 function updateHeader() {
@@ -549,6 +606,7 @@ function pickMapNode(node) {
 
 // ---- 焚き火 ----
 function initBonfire() {}
+function initHowto() {}
 function bonfireHeal() {
   const heal = Math.floor(G.playerMaxHP * 0.3);
   G.playerHP  = Math.min(G.playerMaxHP, G.playerHP + heal);
