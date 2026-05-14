@@ -140,6 +140,35 @@
     .howto-rule:last-child{border-bottom:none;}
     .howto-fixed{margin-top:10px;font-size:11px;color:var(--dim);background:var(--bg3);border-radius:6px;padding:8px 10px;line-height:1.9;}
 
+    /* ---- カードショップ ---- */
+    #hdr-gold{font-size:11px;color:#d4a853;margin-top:2px;}
+    .shop-gold-bar{background:var(--bg2);border:1px solid var(--gold2);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;}
+    .shop-gold-num{font-size:22px;font-weight:700;color:var(--gold);}
+    .shop-gold-label{font-size:11px;color:var(--dim);}
+    .card-list{display:flex;flex-direction:column;gap:10px;}
+    .shop-card{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;transition:opacity .2s;}
+    .shop-card.bought{opacity:.45;border-color:var(--border);}
+    .card-left{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:40px;}
+    .card-color{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+    .card-color.white{background:#ddd8b0;color:#333;}
+    .card-color.green{background:#1a4010;color:#88ee66;}
+    .card-color.red{background:#3a1010;color:#ff9977;}
+    .card-color.black{background:#14141e;color:#aa99dd;border:1px solid #333;}
+    .card-stat{font-size:11px;color:var(--dim);white-space:nowrap;}
+    .card-body{flex:1;min-width:0;}
+    .card-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+    .card-rarity{display:inline-block;font-size:9px;padding:1px 6px;border-radius:4px;margin-bottom:5px;}
+    .card-rarity.uncommon{background:#0e2035;color:#6699cc;}
+    .card-rarity.rare{background:#1e1808;color:#bb8822;}
+    .card-rarity.mythic{background:#220d18;color:#cc6633;}
+    .card-ability{font-size:11px;color:var(--dim);line-height:1.65;}
+    .card-buy-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:8px;}
+    .card-price{font-size:12px;color:var(--gold);font-weight:600;white-space:nowrap;}
+    .card-buy-btn{padding:5px 13px;font-size:12px;border-radius:7px;border:1px solid var(--gold2);background:transparent;color:var(--gold);cursor:pointer;font-family:inherit;transition:background .15s;white-space:nowrap;}
+    .card-buy-btn:hover:not(:disabled){background:rgba(212,168,83,.15);}
+    .card-buy-btn:disabled{border-color:var(--border);color:var(--faint);cursor:not-allowed;}
+    .card-buy-btn.done{border-color:var(--green-bd);color:var(--green-t);cursor:default;}
+
     /* ---- ゲームオーバー ---- */
     #s-gameover .wrap{text-align:center;padding-top:80px;}
     #go-title{font-size:32px;font-weight:700;margin-bottom:8px;}
@@ -154,7 +183,10 @@
   <div id="hdr-title">B L A Z E</div>
   <div>
     <div id="hdr-hp">❤️ 40 / 40</div>
-    <div id="hdr-relics">🌿 毎戦後+5回復</div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div id="hdr-relics" style="font-size:11px;color:var(--dim);"></div>
+      <div id="hdr-gold" style="font-size:11px;color:#d4a853;">💰 0G</div>
+    </div>
   </div>
 </div>
 
@@ -235,7 +267,26 @@
     <div class="screen-title">🔥 焚き火</div>
     <div class="screen-sub">一息つく。どうする？</div>
     <button class="action-btn gold" onclick="bonfireHeal()">❤️ 休息 — 最大HPの30%回復</button>
-    <button class="action-btn" onclick="bonfireShop()">🏪 鍛冶 — ショップ（近日実装）</button>
+    <button class="action-btn" onclick="bonfireShop()">🏪 カードショップへ</button>
+  </div>
+</div>
+
+<!-- ===== カードショップ ===== -->
+<div id="s-cardshop" class="screen" hidden>
+  <div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="screen-title">🏪 カードショップ</div>
+      <button class="action-btn" onclick="goto('map')" style="width:auto;padding:5px 14px;font-size:12px;margin-bottom:0;">← マップへ</button>
+    </div>
+    <div class="shop-gold-bar">
+      <div style="font-size:22px;">💰</div>
+      <div>
+        <div class="shop-gold-num" id="cs-gold">0</div>
+        <div class="shop-gold-label">所持ゴールド</div>
+      </div>
+    </div>
+    <div class="card-list" id="cs-list"></div>
+    <button class="action-btn gold" onclick="goto('map')" style="margin-top:14px;">← マップへ戻る</button>
   </div>
 </div>
 
@@ -305,6 +356,8 @@ const G = {
   playerMaxHP: 40,
   relics: [{ id:'heal5', name:'毎戦後+5回復', icon:'🌿', desc:'各戦闘終了後、5点回復する' }],
   mapPos: null,
+  gold: 0,
+  shopBought: new Set(),
 };
 
 // =====================
@@ -314,7 +367,7 @@ function goto(name, data = {}) {
   document.querySelectorAll('.screen').forEach(el => el.hidden = true);
   document.getElementById('s-' + name).hidden = false;
   updateHeader();
-  ({ map:initMap, battle:initBattle, shop:initShop, bonfire:initBonfire, howto:initHowto, gameover:initGameover }[name] || (() => {}))(data);
+  ({ map:initMap, battle:initBattle, shop:initShop, cardshop:initCardShop, bonfire:initBonfire, howto:initHowto, gameover:initGameover }[name] || (() => {}))(data);
 }
 
 function updateHeader() {
@@ -323,6 +376,7 @@ function updateHeader() {
   hpEl.className = G.playerHP <= 10 ? 'danger' : '';
   document.getElementById('hdr-relics').textContent =
     G.relics.map(r => r.icon + ' ' + r.name).join('　');
+  document.getElementById('hdr-gold').textContent = `💰 ${G.gold}G`;
 }
 
 // =====================
@@ -615,8 +669,7 @@ function bonfireHeal() {
   goto('map');
 }
 function bonfireShop() {
-  document.getElementById('map-hint').textContent = '🏪 鍛冶場は近日実装予定。次の行き先を選んでください';
-  goto('map');
+  goto('cardshop');
 }
 
 // =====================
@@ -817,6 +870,9 @@ function bWin() {
   G.relics.forEach(r => {
     if (r.id === 'heal5') { G.playerHP = Math.min(G.playerMaxHP, G.playerHP + 5); bLog('🌿 5点回復！', 'system'); }
   });
+  const goldReward = B.nodeType === 'boss' ? 600 : B.nodeType === 'elite' ? 400 : 200;
+  G.gold += goldReward;
+  bLog(`💰 ${goldReward}G 獲得！`, 'system');
   bRenderHP();
   const needRelic = B.nodeType === 'elite' || B.nodeType === 'boss';
   setTimeout(() => goto(needRelic ? 'shop' : 'map', { trigger:B.nodeType }), 800);
@@ -861,6 +917,92 @@ function pickRelic(id) {
 function shopSkip() { goto('map'); }
 
 // =====================
+// CARD SHOP
+// =====================
+const SHOP_CARDS = [
+  {
+    id:'brimaz', color:'white', colorIcon:'☀️', rarity:'mythic', rarityLabel:'神話レア',
+    name:'オレスコスの王、ブリマーズ', stat:'3/4', cost:1000,
+    ability:'警戒。攻撃するたびに1/1白猫・兵士トークンで攻撃。ブロックするたびにトークンでブロック。',
+  },
+  {
+    id:'skyclave', color:'white', colorIcon:'☀️', rarity:'uncommon', rarityLabel:'アンコモン',
+    name:'空中対応員', stat:'2/3', cost:800,
+    ability:'飛行・警戒・絆魂。',
+  },
+  {
+    id:'tracker', color:'green', colorIcon:'🌿', rarity:'uncommon', rarityLabel:'アンコモン',
+    name:'茨橋の追跡者', stat:'2/3', cost:800,
+    ability:'警戒。ETB：調査1回。手がかりトークンがある限り+2/+0。',
+  },
+  {
+    id:'elf_renewer', color:'green', colorIcon:'🌿', rarity:'uncommon', rarityLabel:'アンコモン',
+    name:'エルフの再生家', stat:'4/3', cost:800,
+    ability:'ETB：墓地からパーマネント・カード1枚を手札に戻す。',
+  },
+  {
+    id:'efreet', color:'red', colorIcon:'🔥', rarity:'rare', rarityLabel:'レア',
+    name:'イフリートの炎塗り', stat:'1/4', cost:1000,
+    ability:'二段攻撃。戦闘ダメージを与えるたびに手札から瞬唱でき、解決後に追放。',
+  },
+  {
+    id:'roil', color:'red', colorIcon:'🔥', rarity:'uncommon', rarityLabel:'アンコモン',
+    name:'アコウムの石覚まし', stat:'2/1', cost:800,
+    ability:'上陸 — (2)(赤)を支払えば3/1赤エレメンタル・トークンを生成。',
+  },
+  {
+    id:'kalitas', color:'black', colorIcon:'💀', rarity:'rare', rarityLabel:'レア',
+    name:'ゲトの裏切り者、カリタス', stat:'3/4', cost:1200,
+    ability:'絆魂。相手クリーチャーが死亡するたびにそれを追放し、2/2黒ゾンビ・トークンを生成。',
+  },
+  {
+    id:'leechrobe', color:'black', colorIcon:'💀', rarity:'uncommon', rarityLabel:'アンコモン',
+    name:'ヒルの篭手', stat:'2/2', cost:800,
+    ability:'アーティファクト・クリーチャー。絆魂。再構成(4)でクリーチャーに装備。',
+  },
+];
+
+function initCardShop() {
+  renderCardShop();
+}
+
+function renderCardShop() {
+  document.getElementById('cs-gold').textContent = G.gold;
+  document.getElementById('cs-list').innerHTML = SHOP_CARDS.map(card => {
+    const bought  = G.shopBought.has(card.id);
+    const canAfford = G.gold >= card.cost;
+    return `
+      <div class="shop-card${bought ? ' bought' : ''}">
+        <div class="card-left">
+          <div class="card-color ${card.color}">${card.colorIcon}</div>
+          <div class="card-stat">${card.stat}</div>
+        </div>
+        <div class="card-body">
+          <div class="card-name">${card.name}</div>
+          <span class="card-rarity ${card.rarity}">${card.rarityLabel}</span>
+          <div class="card-ability">${card.ability}</div>
+          <div class="card-buy-row">
+            <div class="card-price">💰 ${card.cost}G</div>
+            ${bought
+              ? `<button class="card-buy-btn done" disabled>✓ 購入済み</button>`
+              : `<button class="card-buy-btn" ${canAfford ? '' : 'disabled'} onclick="shopBuyCard('${card.id}')">購入 ${card.cost}G</button>`
+            }
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function shopBuyCard(id) {
+  const card = SHOP_CARDS.find(c => c.id === id);
+  if (!card || G.shopBought.has(id) || G.gold < card.cost) return;
+  G.gold -= card.cost;
+  G.shopBought.add(id);
+  updateHeader();
+  renderCardShop();
+}
+
+// =====================
 // GAME OVER
 // =====================
 function initGameover() {}
@@ -868,6 +1010,7 @@ function restartGame() {
   G.playerHP = 40; G.playerMaxHP = 40;
   G.relics   = [{ id:'heal5', name:'毎戦後+5回復', icon:'🌿', desc:'各戦闘終了後、5点回復する' }];
   G.mapPos   = null; mapGenData = null;
+  G.gold     = 0;   G.shopBought = new Set();
   goto('map');
 }
 
