@@ -128,6 +128,7 @@
     .relic-icon{font-size:32px;margin-bottom:8px;}
     .relic-name{font-size:13px;font-weight:600;color:var(--gold);margin-bottom:4px;}
     .relic-desc{font-size:11px;color:var(--dim);line-height:1.6;}
+    .relic-tier{font-size:10px;color:#b8952a;letter-spacing:1px;margin-bottom:6px;}
 
     /* ---- 遊び方 ---- */
     .howto-head{font-size:13px;font-weight:600;color:var(--gold);margin-bottom:10px;}
@@ -646,11 +647,7 @@ function pickMapNode(node) {
       goto('bonfire');
       break;
     case 'treasure':
-      // 仮：メッセージ表示のみ（詳細実装予定）
-      [...mapGenData.nodeMap.values()].forEach(n => n.available = false);
-      getAvailableMapNodes().forEach(n => n.available = true);
-      renderMapSVG();
-      document.getElementById('map-hint').textContent = '💎 宝箱！ レリックを入手した。次の行き先を選んでください';
+      goto('shop', { trigger: 'treasure' });
       break;
     case 'mystery':
     default:
@@ -874,8 +871,7 @@ function bWin() {
   G.gold += goldReward;
   bLog(`💰 ${goldReward}G 獲得！`, 'system');
   bRenderHP();
-  const needRelic = B.nodeType === 'elite' || B.nodeType === 'boss';
-  setTimeout(() => goto(needRelic ? 'shop' : 'map', { trigger:B.nodeType }), 800);
+  setTimeout(() => goto('shop', { trigger: B.nodeType }), 800);
 }
 
 function bLose() { B.gameOver = true; goto('gameover'); }
@@ -884,25 +880,77 @@ function bLose() { B.gameOver = true; goto('gameover'); }
 // SHOP / RELIC
 // =====================
 const RELIC_POOL = [
-  { id:'heal5',  name:'毎戦後+5回復',      icon:'🌿', desc:'各戦闘終了後、5点回復する' },
-  { id:'draw',   name:'《選択》',           icon:'🎴', desc:'各戦闘開始時、手札に加わる' },
-  { id:'land',   name:'特殊土地+1',         icon:'🏔', desc:'特殊土地を1枚追加できる' },
-  { id:'ramp',   name:'《不屈の自然》',     icon:'🌱', desc:'各戦闘開始時、手札に加わる' },
-  { id:'lord',   name:'《ヤヴィマヤの火》', icon:'🔥', desc:'全クリーチャーが+1/+1になる' },
+  // ─── ★ ───
+  { id:'might_ancestors',    tier:1, icon:'⚔️',  name:'先祖の力',           desc:'戦闘開始時、クリーチャー1体に+2/+0と警戒（そのターン終了まで）' },
+  { id:'tempered_steel',     tier:1, icon:'⚙️',  name:'鍛えられた鋼',       desc:'あなたのアーティファクト・クリーチャーは+2/+2の修整を受ける' },
+  { id:'dying_serve',        tier:1, icon:'🧟',  name:'奉仕への切望',       desc:'カードを捨てるたびに2/2黒ゾンビ・トークンをタップ状態で生成（毎ターン1回）' },
+  { id:'raid_bombardment',   tier:1, icon:'💥',  name:'略奪の爆撃',         desc:'パワー2以下のクリーチャーが攻撃するたび、相手に1点ダメージ' },
+  { id:'undergrowth_recon',  tier:1, icon:'🌾',  name:'下生えの偵察者',     desc:'アップキープ開始時、墓地の土地1枚をタップ状態で戦場に戻す' },
+  { id:'sultai_ascendancy',  tier:1, icon:'🔮',  name:'スゥルタイの隆盛',   desc:'アップキープ開始時、諜報2を行う' },
+  // ─── ★★ ───
+  { id:'glorious_anthem',    tier:2, icon:'🎺',  name:'栄光の頌歌',         desc:'あなたのクリーチャーは全員+1/+1の修整を受ける' },
+  { id:'muster_departed',    tier:2, icon:'👻',  name:'故人の集結',         desc:'ETB：1/1飛行白スピリット・トークンを生成。陰鬱：終了ステップに居住を行う' },
+  { id:'sparring_regimen',   tier:2, icon:'🏋️', name:'戦闘講習',           desc:'ETB：履修。攻撃するたびに攻撃クリーチャー1体に+1/+1カウンターを置きアンタップ' },
+  { id:'tocasias_welcome',   tier:2, icon:'📖',  name:'トカシアの歓待',     desc:'マナ総量3以下のクリーチャーが1体以上ETBするたびカードを引く（毎ターン1回）' },
+  { id:'bastion_remembrance',tier:2, icon:'🏰',  name:'想起の拠点',         desc:'ETB：1/1白人間・兵士トークンを生成。自クリーチャー死亡のたびに相手-1点・自分+1点' },
+  { id:'dark_tutelage',      tier:2, icon:'📚',  name:'闇の後見',           desc:'アップキープ開始時、ライブラリートップを引き、そのマナ総量分ライフを失う' },
+  { id:'phyrexian_arena',    tier:2, icon:'😈',  name:'ファイレクシアの闘技場', desc:'アップキープ開始時、カードを1枚引き1点のライフを失う' },
+  { id:'count_luck',         tier:2, icon:'🎲',  name:'運任せ',             desc:'アップキープ開始時、ライブラリートップを追放。このターンにプレイしてもよい' },
+  { id:'mechanized_warfare', tier:2, icon:'🤖',  name:'機械化戦',           desc:'あなたの赤・アーティファクト発生源が対戦相手に与えるダメージに+1' },
+  { id:'bioengineered_future',tier:2,icon:'🚀',  name:'生体技術化後の未来', desc:'ETB：着陸船トークンを生成。土地ETBのたびにそのターン後続クリーチャーに+1/+1カウンター追加' },
+  { id:'colossal_majesty',   tier:2, icon:'🦁',  name:'巨大な威厳',         desc:'アップキープ開始時、パワー4以上のクリーチャーをコントロールしていればカードを引く' },
+  { id:'descendants_path',   tier:2, icon:'🌳',  name:'末裔の道',           desc:'アップキープ開始時、ライブラリートップを公開。共通クリーチャータイプなら無料で唱えてもよい' },
+  { id:'sylvan_scavenging',  tier:2, icon:'🦝',  name:'森林の物あさり',     desc:'終了ステップ：クリーチャーに+1/+1カウンター、またはパワー4以上なら3/3アライグマ生成' },
+  { id:'high_alert',         tier:2, icon:'🛡️', name:'厳戒態勢',           desc:'クリーチャーはタフネス分の戦闘ダメージを割り振り、防衛があっても攻撃できる' },
+  { id:'bred_hunt',          tier:2, icon:'🎯',  name:'狩りの仕込み',       desc:'+1/+1カウンター持ちクリーチャーが戦闘ダメージを与えるたびカードを1枚引いてもよい' },
+  { id:'obscura_ascendancy', tier:2, icon:'🌙',  name:'常夜会一家の隆盛',   desc:'呪文を唱えるたびマナ総量チェック。条件達成で魂魄カウンターと2/2飛行スピリット生成。5個以上でスピリット+3/+3' },
+  { id:'maestros_ascendancy',tier:2, icon:'🎭',  name:'貴顕廊一家の隆盛',   desc:'毎ターン1回、クリーチャーを生け贄に捧げて墓地のインスタント/ソーサリーを唱えてもよい' },
+  { id:'riveteers_ascendancy',tier:2,icon:'⚒️', name:'土建組一家の隆盛',   desc:'クリーチャーを生け贄に捧げるたびに、墓地のより小さなクリーチャーを戦場に戻してもよい' },
+  { id:'mardu_ascendancy',   tier:2, icon:'🐎',  name:'マルドゥの隆盛',     desc:'トークンでないクリーチャーが攻撃するたびに1/1ゴブリン・トークンで攻撃。生け贄で自クリーチャー+0/+3' },
+  { id:'jeskai_ascendancy',  tier:2, icon:'🌀',  name:'ジェスカイの隆盛',   desc:'クリーチャーでない呪文を唱えるたびに自クリーチャー+1/+1＆アンタップ。カード1枚引いて1枚捨ててもよい' },
+  // ─── ★★★ ───
+  { id:'copy_enchantment',   tier:3, icon:'🪄',  name:'エンチャント複製',   desc:'ETB時、戦場のエンチャント1つのコピーとして戦場に出る' },
+  { id:'unstoppable_plan',   tier:3, icon:'♾️',  name:'止められない計画',   desc:'終了ステップ開始時、土地以外のあなたのパーマネントをすべてアンタップ' },
+  { id:'tainted_remedy',     tier:3, icon:'☠️',  name:'穢れた療法',         desc:'対戦相手がライフを得るなら、代わりにその分ライフを失う' },
+  { id:'beastmaster_ascension',tier:3,icon:'🐆', name:'獣使いの昇天',       desc:'クリーチャーが攻撃するたびに探索カウンターを1個置いてもよい。7個以上でクリーチャー全員+5/+5' },
+  { id:'branching_evolution', tier:3, icon:'🧬', name:'枝分かれの進化',     desc:'クリーチャーに+1/+1カウンターが置かれるなら、代わりに2倍の数を置く' },
+  { id:'tribute_world_tree', tier:3, icon:'🌲',  name:'世界樹への貢納',     desc:'クリーチャーETB時：パワー3以上ならカードを引く。そうでなければ+1/+1カウンター2個を置く' },
+  { id:'warleaders_call',    tier:3, icon:'📣',  name:'戦導者の号令',       desc:'クリーチャー全員+1/+1。クリーチャーETBのたびに相手に1点ダメージ' },
+  { id:'fires_yavimaya',     tier:3, icon:'🔥',  name:'ヤヴィマヤの火',     desc:'あなたのクリーチャーは速攻を持つ。生け贄に捧げるとクリーチャー1体に+2/+2（ターン終了まで）' },
+  { id:'hadanas_climb',      tier:3, icon:'🦋',  name:'ハダーナの登臨',     desc:'戦闘開始時、クリーチャー1体に+1/+1カウンター。3個以上で変身（飛行＆パワー分+X/+X付与土地）' },
+  { id:'temur_ascendancy',   tier:3, icon:'🐻',  name:'ティムールの隆盛',   desc:'クリーチャーは速攻を持つ。パワー4以上のクリーチャーETBでカードを1枚引いてもよい' },
 ];
 
 function initShop(data = {}) {
-  const trigger = data.trigger || 'shop';
+  const trigger = data.trigger || 'normal';
   const owned   = new Set(G.relics.map(r => r.id));
-  const picks   = RELIC_POOL.filter(r => !owned.has(r.id)).sort(() => Math.random() - .5).slice(0, 3);
 
-  document.getElementById('shop-title').textContent =
-    trigger === 'elite' ? 'エリート撃破！  レリック獲得' :
-    trigger === 'boss'  ? 'ボス撃破！  レリック獲得'    : 'ショップ — レリック選択';
-  document.getElementById('shop-sub').textContent = picks.length ? '1つ選んでください' : '全部持っている！';
-  document.getElementById('shop-grid').innerHTML  = picks.map(r => `
+  let maxTier, title, sub;
+  if (trigger === 'elite' || trigger === 'boss') {
+    maxTier = 3; // ★★★のみ
+    title = trigger === 'boss' ? 'ボス撃破！  レリック獲得' : 'エリート撃破！  レリック獲得';
+    sub   = '★★★ レリックを1つ選んでください';
+  } else if (trigger === 'treasure') {
+    maxTier = 3; // ★★〜★★★
+    title = '💎 宝箱  レリック獲得';
+    sub   = '★★〜★★★ レリックを1つ選んでください';
+  } else {
+    // 雑魚戦：★〜★★、10%で★★★も混入
+    maxTier = Math.random() < 0.1 ? 3 : 2;
+    title = '⚔️ 雑魚戦勝利  レリック獲得';
+    sub   = maxTier === 3 ? '★〜★★★ レリックを1つ選んでください（ラッキー！）' : '★〜★★ レリックを1つ選んでください';
+  }
+
+  const minTier = trigger === 'treasure' ? 2 : trigger === 'elite' || trigger === 'boss' ? 3 : 1;
+  const pool  = RELIC_POOL.filter(r => !owned.has(r.id) && r.tier >= minTier && r.tier <= maxTier);
+  const picks = pool.sort(() => Math.random() - .5).slice(0, 3);
+
+  document.getElementById('shop-title').textContent = title;
+  document.getElementById('shop-sub').textContent   = picks.length ? sub : '全部持っている！';
+  document.getElementById('shop-grid').innerHTML    = picks.map(r => `
     <div class="relic-card" onclick="pickRelic('${r.id}')">
       <div class="relic-icon">${r.icon}</div>
+      <div class="relic-tier">${'★'.repeat(r.tier)}</div>
       <div class="relic-name">${r.name}</div>
       <div class="relic-desc">${r.desc}</div>
     </div>`).join('');
